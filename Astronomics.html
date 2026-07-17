@@ -1,0 +1,2676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>ASTRONOMICS</title>
+<style>
+:root{
+  --amb:#ffb454; --ink:#e9dcc2; --dim:#8a8172;
+  --line:rgba(255,180,110,.38); --lineDim:rgba(255,180,110,.16);
+  --pan:rgba(8,10,14,.94); --bad:#ff7a6b; --ok:#9adf9a;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;overflow:hidden;background:#05060a;height:100%;}
+body{font-family:ui-monospace,'Cascadia Mono','SF Mono',Menlo,Consolas,'Courier New',monospace;
+  color:var(--ink); user-select:none; -webkit-user-select:none; touch-action:none;}
+canvas{display:block;}
+#world{position:fixed;inset:0;width:100vw;height:100vh;}
+/* CRT-ish scanlines + vignette */
+#fx{position:fixed;inset:0;pointer-events:none;z-index:40;
+  background:repeating-linear-gradient(0deg, rgba(0,0,0,.13) 0 1px, transparent 1px 3px);}
+#vg{position:fixed;inset:0;pointer-events:none;z-index:41;
+  background:radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.5) 100%);}
+#heatFx{position:fixed;inset:0;pointer-events:none;z-index:42;opacity:0;
+  background:radial-gradient(ellipse at center, transparent 40%, rgba(255,60,20,.55) 100%);}
+#warpFx{position:fixed;inset:0;pointer-events:none;z-index:43;opacity:0;background:#dfe8ff;}
+
+/* ---------- TITLE ---------- */
+#title{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:14px;}
+#title h1{margin:0;font-weight:400;font-size:clamp(34px,9vw,86px);letter-spacing:.32em;
+  padding-left:.32em;color:var(--ink);text-shadow:0 0 22px rgba(255,180,84,.45),0 0 3px rgba(255,180,84,.8);}
+#title .sub{font-size:11px;letter-spacing:.42em;color:var(--dim);margin-bottom:26px;text-align:center;padding:0 12px;}
+.mbtn{width:min(280px,80vw);padding:13px 0;background:rgba(10,12,16,.6);border:1px solid var(--line);
+  color:var(--ink);font-family:inherit;font-size:13px;letter-spacing:.3em;padding-left:.3em;cursor:pointer;}
+.mbtn:hover:not(:disabled){background:rgba(255,180,84,.14);border-color:var(--amb);color:var(--amb);}
+.mbtn:disabled{opacity:.35;cursor:default;}
+#seedRow{display:flex;gap:8px;align-items:center;margin-top:4px;}
+#seedRow label{font-size:10px;letter-spacing:.25em;color:var(--dim);}
+#seedIn,.tin{background:transparent;border:1px solid var(--lineDim);color:var(--ink);
+  font-family:inherit;font-size:12px;padding:6px 8px;letter-spacing:.15em;outline:none;}
+#seedIn{width:130px;text-align:center;}
+#seedIn:focus,.tin:focus{border-color:var(--line);}
+.tin{width:100%;box-sizing:border-box;letter-spacing:.08em;}
+textarea.tin{height:84px;resize:vertical;font-size:10px;letter-spacing:0;word-break:break-all;}
+#titleFoot{position:absolute;bottom:14px;font-size:10px;letter-spacing:.25em;color:var(--dim);}
+
+/* ---------- HUD ---------- */
+#hud{position:fixed;inset:0;z-index:50;pointer-events:none;}
+#hud .clickable{pointer-events:auto;}
+#topLeft{position:absolute;top:10px;left:max(12px, env(safe-area-inset-left));display:flex;flex-direction:column;gap:6px;}
+.bRow{display:flex;align-items:center;gap:8px;}
+.bar{width:290px;height:11px;border:1px solid var(--line);position:relative;background:rgba(0,0,0,.45);}
+.bar .fill{position:absolute;top:1px;left:1px;bottom:1px;background:var(--amb);transition:width .15s linear;}
+#hullF{background:#9adf9a;}
+#cargoF{background:#c9a6ef;}
+.bt{font-size:9px;letter-spacing:.2em;color:var(--dim);white-space:nowrap;}
+.chipsRow{display:flex;align-items:center;gap:10px;margin-top:2px;}
+#chips{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;width:290px;}
+#cargoTxt{font-size:9px;letter-spacing:.2em;color:var(--dim);white-space:nowrap;}
+.chip{border:1px solid var(--lineDim);background:rgba(0,0,0,.5);padding:2px 7px;font-size:11px;letter-spacing:.06em;
+  display:flex;justify-content:center;gap:6px;white-space:nowrap;}
+.chip b{font-weight:400;}
+#objective{font-size:10px;letter-spacing:.18em;color:var(--amb);max-width:300px;line-height:1.7;opacity:.9;margin-top:2px;}
+#objective span{color:var(--dim);}
+#mmWrap{position:absolute;top:10px;right:max(12px, env(safe-area-inset-right));width:150px;
+  display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
+.mmBtn{width:100%;min-width:0;overflow:hidden;background:var(--pan);border:1px solid var(--line);
+  padding:6px 6px 7px;cursor:pointer;
+  display:flex;flex-direction:column;gap:6px;align-items:center;font-family:inherit;}
+.mmBtn:hover{border-color:var(--amb);}
+.mmBtn:hover #mmLab{color:var(--amb);}
+#mm{min-width:0;display:block;background:rgba(3,4,8,.8);}
+#mmLab{font-size:11px;letter-spacing:.18em;color:var(--ink);line-height:1;padding:2px 0 1px;}
+.kbd{color:var(--dim);}
+@media (pointer:coarse){ .kbd{display:none;} }
+#btnBar{display:flex;flex-direction:column;gap:6px;width:100%;margin-top:2px;}
+.hbtn{width:100%;padding:8px 10px;background:var(--pan);border:1px solid var(--line);color:var(--ink);
+  font-family:inherit;font-size:11px;letter-spacing:.18em;cursor:pointer;text-align:center;}
+.hbtn:hover{border-color:var(--amb);color:var(--amb);}
+#prompt{position:absolute;bottom:96px;left:50%;transform:translateX(-50%);font-size:13px;
+  letter-spacing:.18em;color:var(--amb);text-shadow:0 0 10px rgba(255,180,84,.5);white-space:nowrap;}
+#toasts{position:absolute;left:12px;bottom:14px;display:flex;flex-direction:column;gap:5px;max-width:74vw;}
+.toast{border-left:2px solid var(--amb);background:var(--pan);padding:6px 10px;font-size:11px;
+  letter-spacing:.08em;animation:tIn .25s ease-out;}
+.toast.good{border-left-color:var(--ok);}
+.toast.bad{border-left-color:var(--bad);}
+@keyframes tIn{from{opacity:0;transform:translateX(-12px);}to{opacity:1;transform:none;}}
+.fadeOut{opacity:0;transition:opacity .8s;}
+
+/* touch controls */
+#stick{position:absolute;left:22px;bottom:90px;width:124px;height:124px;border:1px solid var(--lineDim);
+  border-radius:50%;display:none;}
+#knob{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;
+  border:1px solid var(--line);background:rgba(255,180,84,.12);}
+#abtns{position:absolute;right:16px;bottom:90px;display:none;flex-direction:column;gap:10px;}
+.abtn{width:104px;height:58px;background:var(--pan);border:1px solid var(--line);color:var(--ink);
+  font-family:inherit;font-size:11px;letter-spacing:.2em;}
+.abtn:active{background:rgba(255,180,84,.2);}
+@media (pointer:coarse){ #stick,#abtns{display:flex;} #stick{display:block;} }
+
+/* narrow screens (phones, portrait) — shrink both columns so they never meet */
+@media (max-width:768px){
+  #mmWrap{width:112px;}
+  .bar{width:198px;}
+  #chips{width:198px;}
+  .chip{font-size:10px;padding:2px 5px;}
+  #objective{max-width:190px;font-size:9px;}
+  .hbtn{padding:7px 6px;font-size:10px;letter-spacing:.1em;}
+  #mmLab{font-size:10px;letter-spacing:.1em;}
+}
+/* short screens (phones, landscape) — compact right column, action buttons go side by side */
+@media (max-height:520px){
+  #mmWrap{width:104px;}
+  .hbtn{padding:5px 6px;font-size:9px;letter-spacing:.1em;}
+  #mmLab{font-size:9px;letter-spacing:.1em;}
+  #abtns{flex-direction:row-reverse;bottom:max(14px, env(safe-area-inset-bottom));right:max(14px, env(safe-area-inset-right));gap:8px;}
+  .abtn{width:86px;height:46px;font-size:10px;}
+  #stick{bottom:max(14px, env(safe-area-inset-bottom));width:104px;height:104px;}
+  #prompt{bottom:70px;font-size:11px;}
+  #toasts{max-width:50vw;}
+}
+
+/* ---------- PANEL (modal) ---------- */
+#panelWrap{position:fixed;inset:0;z-index:70;background:rgba(2,3,6,.6);display:flex;
+  align-items:center;justify-content:center;padding:12px;}
+#panel{width:min(580px,96vw);max-height:86vh;overflow-y:auto;background:var(--pan);
+  border:1px solid var(--line);padding:16px 18px;box-shadow:0 0 40px rgba(0,0,0,.8);}
+.pHead{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--lineDim);
+  padding-bottom:8px;margin-bottom:10px;}
+.pTitle{font-size:16px;letter-spacing:.22em;color:var(--amb);}
+.pClose{background:none;border:1px solid var(--line);color:var(--ink);font-family:inherit;
+  font-size:11px;padding:4px 10px;cursor:pointer;letter-spacing:.15em;}
+.pClose:hover{color:var(--amb);border-color:var(--amb);}
+.sub{font-size:11px;color:var(--dim);letter-spacing:.1em;line-height:1.55;}
+.secH{font-size:10px;letter-spacing:.3em;color:var(--dim);margin:14px 0 6px;border-bottom:1px solid var(--lineDim);padding-bottom:3px;}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;
+  border-bottom:1px dashed var(--lineDim);font-size:12px;flex-wrap:wrap;}
+.row .lft{flex:1;min-width:140px;}
+.row .btns{display:flex;gap:6px;flex-wrap:wrap;}
+.row .mid{flex:1;display:flex;justify-content:center;}
+.row .mid .midIn{display:flex;flex-direction:column;gap:2px;font-size:10px;letter-spacing:.05em;
+  color:var(--ink);text-align:left;white-space:nowrap;}
+.row .btns.vstack{flex-direction:column;align-items:stretch;gap:4px;flex:0 0 128px;width:128px;}
+.row .btns.vstack .act{width:100%;}
+.row .btns.vstack .cost{text-align:center;}
+/* galaxy-map side list: info | rates | stacked buttons, evenly distributed */
+#mapSide .row{flex-wrap:nowrap;}
+#mapSide .row .lft{flex:1.1;min-width:96px;}
+#mapSide .row .mid{flex:1;}
+#mapSide .row .btns{flex-direction:column;align-items:stretch;flex:0 0 auto;min-width:96px;gap:5px;}
+#mapSide .row .btns .act{width:100%;}
+#mapSide .row .btns .cost{text-align:center;}
+.act.tbtn{width:96px;padding-left:0;padding-right:0;text-align:center;}
+.act.amt{width:52px;padding-left:0;padding-right:0;text-align:center;}
+.act{background:rgba(255,180,84,.08);border:1px solid var(--line);color:var(--ink);
+  font-family:inherit;font-size:11px;padding:6px 11px;cursor:pointer;letter-spacing:.08em;}
+.act:hover:not(:disabled){background:rgba(255,180,84,.2);color:var(--amb);border-color:var(--amb);}
+.act:disabled{opacity:.35;cursor:default;}
+.cost{font-size:10px;color:var(--dim);letter-spacing:.05em;}
+.tag{display:inline-block;border:1px solid var(--lineDim);padding:1px 6px;font-size:10px;
+  letter-spacing:.15em;color:var(--dim);margin-left:6px;vertical-align:middle;}
+.hueDot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px;}
+.stars{letter-spacing:2px;color:var(--amb);}
+.card{border:1px solid var(--lineDim);padding:9px 11px;margin-bottom:8px;}
+.card.owned{border-color:rgba(154,223,154,.4);}
+.card .cn{font-size:12px;letter-spacing:.15em;}
+.card .cd{font-size:10px;color:var(--dim);margin:4px 0 6px;line-height:1.5;}
+.good{color:var(--ok);} .badc{color:var(--bad);} .amb{color:var(--amb);}
+
+/* ---------- GALAXY MAP ---------- */
+#mapWrap{position:fixed;inset:0;z-index:65;background:#04050a;}
+#mapC{position:absolute;inset:0;width:100%;height:100%;}
+#mapTop{position:absolute;top:10px;left:12px;display:flex;gap:6px;flex-wrap:wrap;z-index:2;}
+#mapHint{position:absolute;top:52px;left:12px;font-size:10px;letter-spacing:.2em;color:var(--amb);z-index:2;}
+#mapSide{position:absolute;top:10px;right:12px;width:280px;max-height:76vh;overflow-y:auto;
+  background:var(--pan);border:1px solid var(--line);padding:12px 14px;z-index:2;}
+#mapSide:empty{display:none;}
+@media (max-width:640px){
+  #mm{width:112px;height:112px;} #btnBar{top:150px;}
+  #mapSide{top:auto;bottom:10px;left:12px;right:12px;width:auto;max-height:44vh;}
+  #objective{max-width:44vw;font-size:9px;}
+  .bar{width:198px;}
+}
+</style>
+</head>
+<body>
+<canvas id="world"></canvas>
+<div id="fx"></div><div id="vg"></div><div id="heatFx"></div><div id="warpFx"></div>
+
+<!-- TITLE SCREEN -->
+<div id="title">
+  <h1>ASTRONOMICS</h1>
+  <div class="sub">DEEP&nbsp;SPACE&nbsp;RESOURCE&nbsp;&amp;&nbsp;TRADE&nbsp;COMMAND</div>
+  <button class="mbtn" id="btnNew">NEW EXPEDITION</button>
+  <button class="mbtn" id="btnCont" disabled>CONTINUE</button>
+  <button class="mbtn" id="btnSaves">SAVES</button>
+  <button class="mbtn" id="btnHow">MANUAL</button>
+  <button class="mbtn" id="btnSnd">SOUND: ON</button>
+  <div id="seedRow"><label>SEED</label><input id="seedIn" maxlength="10" placeholder="RANDOM"></div>
+  <div id="titleFoot">ASTRONOMICS v1.0 — A PROCEDURAL GALAXY AWAITS</div>
+</div>
+
+<!-- HUD -->
+<div id="hud" style="display:none">
+  <div id="topLeft">
+    <div class="bRow"><div class="bar"><div class="fill" id="fuelF"></div></div><span class="bt">FUEL</span></div>
+    <div class="bRow"><div class="bar"><div class="fill" id="hullF"></div></div><span class="bt">HULL</span></div>
+    <div class="bRow"><div class="bar"><div class="fill" id="cargoF"></div></div><span class="bt">HOLD</span></div>
+    <div class="chipsRow"><div id="chips"></div><div id="cargoTxt"></div></div>
+    <div id="objective"></div>
+  </div>
+  <div id="mmWrap" class="clickable">
+    <button class="mmBtn" id="btnMap">
+      <canvas id="mm" width="150" height="150"></canvas>
+      <span id="mmLab">GALAXY MAP <span class="kbd">[M]</span></span>
+    </button>
+    <div id="btnBar">
+      <button class="hbtn" id="btnRes">RESEARCH <span class="kbd">[R]</span></button>
+      <button class="hbtn" id="btnMenu">MENU <span class="kbd">[ESC]</span></button>
+    </div>
+  </div>
+  <div id="prompt"></div>
+  <div id="toasts"></div>
+  <div id="stick" class="clickable"><div id="knob"></div></div>
+  <div id="abtns" class="clickable">
+    <button class="abtn" id="abBoost">BOOST</button>
+    <button class="abtn" id="abInteract">DOCK</button>
+  </div>
+</div>
+
+<!-- MODAL PANEL -->
+<div id="panelWrap" style="display:none"><div id="panel"></div></div>
+
+<!-- GALAXY MAP -->
+<div id="mapWrap" style="display:none">
+  <canvas id="mapC"></canvas>
+  <div id="mapTop">
+    <button class="hbtn" id="btnMapClose">CLOSE [M]</button>
+    <button class="hbtn" id="btnZoomIn">ZOOM +</button>
+    <button class="hbtn" id="btnZoomOut">ZOOM −</button>
+    <button class="hbtn" id="btnRoutes">ROUTES</button>
+  </div>
+  <div id="mapHint"></div>
+  <div id="mapSide"></div>
+</div>
+
+<script>
+"use strict";
+/* =====================================================================
+   ASTRONOMICS — single-file space exploration / economy game
+   Sections:
+     1. Utilities & seeded RNG          5. Input (keys + touch)
+     2. Persistent storage adapter      6. Simulation (ship, colonies,
+     3. Sound (tiny WebAudio synth)        freighters, milestones)
+     4. Data tables + galaxy generator  7. Rendering (world, minimap)
+                                        8. Galaxy map overlay
+                                        9. UI panels, HUD, main loop
+   ===================================================================== */
+
+/* ---------------- 1. UTILITIES ---------------- */
+const TAU = Math.PI*2;
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b) => v<a?a:(v>b?b:v);
+const lerp = (a,b,t) => a+(b-a)*t;
+const hyp = (x,y) => Math.sqrt(x*x+y*y);
+const hsl = (h,s,l,a=1) => `hsla(${h},${s}%,${l}%,${a})`;
+function fmt(n){
+  n = Math.floor(n);
+  if(n>=100000) return (n/1000).toFixed(0)+'k';
+  if(n>=10000)  return (n/1000).toFixed(1)+'k';
+  return n.toLocaleString('en-US');
+}
+// deterministic PRNG
+function mulberry32(s){
+  return function(){
+    s |= 0; s = s + 0x6D2B79F5 | 0;
+    let t = Math.imul(s ^ s>>>15, 1 | s);
+    t = t + Math.imul(t ^ t>>>7, 61 | t) ^ t;
+    return ((t ^ t>>>14) >>> 0) / 4294967296;
+  };
+}
+// spatial hash -> [0,1), for infinite starfields
+function hash3(x,y,z){
+  let h = (x*374761393 + y*668265263 + z*1442695041) | 0;
+  h = Math.imul(h ^ h>>>13, 1274126177);
+  return ((h ^ h>>>16) >>> 0) / 4294967296;
+}
+function seedFromString(str){
+  let h = 2166136261;
+  for(let i=0;i<str.length;i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+
+/* ---------------- 2. STORAGE ADAPTER ----------------
+   Works in claude.ai artifacts (window.storage), as a standalone
+   file (localStorage), or falls back to memory-only. */
+const MEMSTORE = {};
+async function stSet(k,v){
+  const s = JSON.stringify(v);
+  try{ if(window.storage){ await window.storage.set(k,s); return true; } }catch(e){}
+  try{ localStorage.setItem(k,s); return true; }catch(e){}
+  MEMSTORE[k]=s; return true;
+}
+async function stGet(k){
+  try{ if(window.storage){ const r = await window.storage.get(k); if(r&&r.value!=null) return JSON.parse(r.value); } }catch(e){}
+  try{ const v = localStorage.getItem(k); if(v!=null) return JSON.parse(v); }catch(e){}
+  if(MEMSTORE[k]!=null) return JSON.parse(MEMSTORE[k]);
+  return null;
+}
+
+/* ---------------- 3. SOUND ---------------- */
+const SND = {
+  on:true, ctx:null, amb:null,
+  ensure(){
+    if(!this.ctx){
+      try{ this.ctx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ this.on=false; }
+    }
+    if(this.ctx && this.ctx.state==='suspended') this.ctx.resume();
+  },
+  tone(f, dur, type='square', vol=.05, slide=0){
+    if(!this.on || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    if(slide) o.frequency.exponentialRampToValueAtTime(Math.max(20,f+slide), t+dur);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(.0001, t+dur);
+    o.connect(g); g.connect(this.ctx.destination);
+    o.start(t); o.stop(t+dur+.02);
+  },
+  blip(){ this.tone(660,.07,'square',.04); },
+  ping(){ this.tone(880,.25,'sine',.05,240); },
+  coin(){ this.tone(520,.06,'square',.05); setTimeout(()=>this.tone(780,.1,'square',.05),60); },
+  thunk(){ this.tone(140,.15,'triangle',.09,-40); },
+  err(){ this.tone(180,.18,'sawtooth',.05,-60); },
+  warp(){ this.tone(160,.7,'sawtooth',.06,900); this.tone(80,.7,'sine',.06,500); },
+  scanp(){ this.tone(1100,.12,'sine',.035,300); },
+  ambient(){
+    if(!this.on || !this.ctx || this.amb) return;
+    const c = this.ctx;
+    const g = c.createGain(); g.gain.value = .022; g.connect(c.destination);
+    const fl = c.createBiquadFilter(); fl.type='lowpass'; fl.frequency.value=340; fl.connect(g);
+    const o1 = c.createOscillator(), o2 = c.createOscillator();
+    o1.type='sawtooth'; o2.type='sawtooth'; o2.detune.value = 8;
+    o1.connect(fl); o2.connect(fl); o1.start(); o2.start();
+    const roots = [55, 65.4, 49, 43.65, 58.27];
+    let i = 0;
+    const step = ()=>{ if(!this.on) return;
+      const f = roots[i++ % roots.length];
+      o1.frequency.linearRampToValueAtTime(f, c.currentTime+6);
+      o2.frequency.linearRampToValueAtTime(f*1.5, c.currentTime+6);
+    };
+    step(); this.amb = {g, timer:setInterval(step, 13000)};
+  },
+  toggle(){
+    this.on = !this.on;
+    if(!this.on && this.amb){ this.amb.g.gain.value = 0; }
+    if(this.on){ this.ensure(); if(this.amb) this.amb.g.gain.value = .022; else this.ambient(); }
+    stSet('astronomics_snd', this.on);
+  }
+};
+
+/* ---------------- 4. DATA TABLES ---------------- */
+const RESKEYS = ['metal','ice','gas','organics','crystal'];
+const RESMETA = {
+  metal:    {n:'METAL',    tag:'ME', c:'#c3ccd6'},
+  ice:      {n:'ICE',      tag:'IC', c:'#8fd8ff'},
+  gas:      {n:'GAS',      tag:'GA', c:'#c58bff'},
+  organics: {n:'ORGANICS', tag:'OR', c:'#8fe08f'},
+  crystal:  {n:'CRYSTAL',  tag:'CR', c:'#ffd166'},
+};
+const BASEPRICE = {metal:4, ice:3, gas:5, organics:6, crystal:30};
+
+const PTYPES = {
+  rocky:  {label:'ROCKY WORLD',   hue:26,  hj:14, sat:24, feat:'craters'},
+  lava:   {label:'LAVA WORLD',    hue:9,   hj:8,  sat:78, feat:'lava'},
+  desert: {label:'DESERT WORLD',  hue:39,  hj:8,  sat:58, feat:'desert'},
+  ice:    {label:'ICE WORLD',     hue:196, hj:14, sat:42, feat:'ice'},
+  ocean:  {label:'OCEAN WORLD',   hue:212, hj:12, sat:58, feat:'ocean'},
+  terran: {label:'TERRAN WORLD',  hue:128, hj:18, sat:38, feat:'terran'},
+  gas:    {label:'GAS GIANT',     hue:0,   hj:0,  sat:46, feat:'bands'}, // hue picked per planet
+};
+const GASHUES = [268, 46, 318, 178, 224];
+const SUNHUES = [
+  {h:47, s:88, name:'YELLOW DWARF', w:30},
+  {h:27, s:92, name:'ORANGE STAR',  w:25},
+  {h:6,  s:82, name:'RED GIANT',    w:20},
+  {h:212,s:78, name:'BLUE STAR',    w:15},
+  {h:52, s:14, name:'WHITE STAR',   w:10},
+];
+// per-minute yield at extractor level 1, richness 1
+function planetRates(type, rich, cRich){
+  const m = {};
+  if(type==='rocky'){ m.metal = 6*rich; if(cRich) m.crystal = 1.4*rich; }
+  if(type==='lava'){  m.metal = 4*rich; m.crystal = 2.0*rich; }
+  if(type==='desert'){m.metal = 2.5*rich; m.crystal = 1.6*rich; }
+  if(type==='ice'){   m.ice = 6*rich; if(cRich) m.crystal = 1.2*rich; }
+  if(type==='ocean'){ m.organics = 4*rich; m.ice = 3*rich; }
+  if(type==='terran'){m.organics = 6*rich; if(cRich) m.crystal = 1.0*rich; }
+  if(type==='gas'){   m.gas = 8*rich; }
+  return m;
+}
+const EXTNAME = {rocky:'ORE MINE', lava:'THERMAL BORE', desert:'STRIP MINE',
+  ice:'ICE HARVESTER', ocean:'BIO DREDGE', terran:'AGRI DOME', gas:'GAS SIPHON'};
+
+const RESEARCH = [
+  {id:'warp1',  tier:1, name:'WARP DRIVE',          cost:{crystal:3, credits:150}, desc:'Warp to any of your colonies from the galaxy map. Warp burns fuel by distance.'},
+  {id:'scan1',  tier:1, name:'LONG-RANGE SCANNER',  cost:{crystal:3, credits:150}, desc:'+60% scan radius. Planets reveal themselves from farther away.'},
+  {id:'eng1',   tier:1, name:'ION ENGINES I',       cost:{crystal:4, credits:200}, desc:'+30% thrust and top speed.'},
+  {id:'cargo1', tier:1, name:'CARGO BAY I',         cost:{crystal:4, credits:200}, desc:'+60 cargo capacity.'},
+  {id:'mine1',  tier:1, name:'REFINED EXTRACTION I',cost:{crystal:5, credits:300}, desc:'+35% output from all extractors.'},
+  {id:'fuel1',  tier:2, name:'FUEL RECYCLING',      cost:{crystal:5, credits:300}, desc:'-40% fuel consumption, including warp cost.'},
+  {id:'hull1',  tier:2, name:'REINFORCED HULL',     cost:{crystal:5, credits:300}, desc:'+50 max hull. Star heat damage halved.'},
+  {id:'log1',   tier:2, name:'FREIGHT LOGISTICS',   cost:{crystal:8, credits:500}, desc:'Build FREIGHT TERMINALS and run ONE trade route per terminal colony. Start routes while docked there.'},
+  {id:'hab1',   tier:2, name:'EXTREME HABITATS',    cost:{crystal:8, credits:500}, desc:'Colonize lava and desert worlds — rich in crystal.'},
+  {id:'eng2',   tier:3, req:'eng1',   name:'ION ENGINES II',        cost:{crystal:8,  credits:700},  desc:'+35% further thrust and top speed.'},
+  {id:'cargo2', tier:3, req:'cargo1', name:'CARGO BAY II',          cost:{crystal:8,  credits:700},  desc:'+120 further cargo capacity.'},
+  {id:'mine2',  tier:3, req:'mine1',  name:'REFINED EXTRACTION II', cost:{crystal:10, credits:900},  desc:'+35% further extractor output.'},
+  {id:'scan2',  tier:3, req:'scan1',  name:'DEEP SPACE ARRAY',      cost:{crystal:9,  credits:800},  desc:'Every star in the galaxy appears on your map. Anomalies show on the sector scan.'},
+  {id:'logA',   tier:3, req:'log1',   name:'ADVANCED LOGISTICS',    cost:{crystal:9,  credits:800},  desc:'Freight terminals can be UPGRADED, raising a colony to THREE outgoing trade routes.'},
+  {id:'log2',   tier:4, req:'logA',   name:'HEAVY FREIGHTERS',      cost:{crystal:12, credits:1200}, desc:'Individual freighters can be UPGRADED to level 3 — bigger holds, faster engines. Manage them from the colony panel.'},
+  {id:'hab2',   tier:4, req:'hab1',   name:'ORBITAL PLATFORMS',     cost:{crystal:12, credits:1200}, desc:'Colonize gas giants with orbital extraction rigs.'},
+];
+
+const MILESTONES = [
+  {id:'m_scan',   t:'SCAN A PLANET — FLY CLOSE TO ONE',      r:{credits:50}},
+  {id:'m_col1',   t:'ESTABLISH YOUR FIRST COLONY',           r:{credits:150}},
+  {id:'m_build',  t:'BUILD AN EXTRACTOR ON A COLONY',        r:{credits:100}},
+  {id:'m_collect',t:'DOCK AND COLLECT COLONY RESOURCES',     r:{credits:100}},
+  {id:'m_sell',   t:'SELL RESOURCES AT A TRADE STATION',     r:{crystal:2}},
+  {id:'m_res',    t:'COMPLETE A RESEARCH PROJECT',           r:{credits:200}},
+  {id:'m_col3',   t:'GROW TO 3 COLONIES',                    r:{crystal:4}},
+  {id:'m_route',  t:'ESTABLISH A TRADE ROUTE',               r:{credits:400}},
+  {id:'m_vis10',  t:'VISIT 10 STAR SYSTEMS',                 r:{crystal:5}},
+  {id:'m_anom5',  t:'INVESTIGATE 5 ANOMALIES',               r:{credits:500, crystal:3}},
+  {id:'m_cr5k',   t:'AMASS 5,000 CREDITS',                   r:{crystal:6}},
+  {id:'m_col6',   t:'COMMAND 6 COLONIES',                    r:{crystal:8}},
+];
+
+const LORE = [
+  '"...day 400. the seams sing when we drill. we are not the first."',
+  'nav log recovered: coordinates of every star, annotated in a dead language.',
+  '"the cargo was never ore. tell them the cargo was never ore."',
+  'a crew manifest. every name has been crossed out except yours.',
+  'automated distress loop, 212 years old. the battery should be dead.',
+  '"we sold the sky and bought the ground. fair trade."',
+  'hull etched with tally marks. 4,391 of them.',
+  'the captain\'s chair is still warm.',
+  'star charts drawn in pencil. someone mapped this galaxy by eye.',
+  '"if you can read this, the route is still open."',
+];
+
+const SYS_A = ['VOR','KAE','NEB','AUR','THAL','ORI','BEL','CYN','DRA','ERE','FEN','HYD',
+  'ISH','JUN','KEL','LOR','MAR','NYX','OPH','PRAX','QUO','RHE','SEL','TAU','ULM','VEX','WYR','XAN','YRI','ZEPH'];
+const SYS_B = ['ATH','ION','ARA','EUS','IX','ORA','UNE','IS','ANTHA','OS','EA','IR','UL','EMIS','YRA','ON','AK'];
+const SYS_C = ['','',' REACH',' DRIFT',' VERGE','',' EXPANSE','',' MINOR',''];
+const ROMAN = ['I','II','III','IV','V','VI','VII','VIII','IX'];
+const GREEK = ['ALPHA','BETA','GAMMA','DELTA','EPSILON','ZETA','ETA','THETA','IOTA','KAPPA','SIGMA','TAU','OMEGA'];
+
+/* ---------------- GALAXY GENERATOR ---------------- */
+const WORLD_R = 26000;
+let GAL = null;        // active galaxy
+let PIDX = new Map();  // planetId -> {sys, p}
+let SIDX = new Map();  // stationId -> {sys}
+
+function genGalaxy(seed){
+  const R = mulberry32(seed);
+  const rr = (a,b)=> a + R()*(b-a);
+  const ri = (a,b)=> Math.floor(rr(a,b+1));
+  const pick = arr => arr[Math.floor(R()*arr.length)];
+  const wpick = arr => { // [[val,weight]...]
+    let tot = 0; for(const e of arr) tot += e[1];
+    let x = R()*tot;
+    for(const e of arr){ x -= e[1]; if(x<=0) return e[0]; }
+    return arr[0][0];
+  };
+  const usedNames = new Set();
+  function sysName(){
+    for(let i=0;i<40;i++){
+      const n = pick(SYS_A)+pick(SYS_B).toLowerCase()+pick(SYS_C);
+      const nn = n.charAt(0)+n.slice(1).toLowerCase();
+      if(!usedNames.has(nn)){ usedNames.add(nn); return nn.toUpperCase(); }
+    }
+    return 'SYSTEM '+ri(100,999);
+  }
+  function pickSun(){
+    return wpick(SUNHUES.map(s=>[s, s.w]));
+  }
+  function makePlanet(si, pi, orbit, zone, forced){
+    let type;
+    if(forced) type = forced;
+    else if(zone==='inner') type = wpick([['lava',3],['rocky',4],['desert',3]]);
+    else if(zone==='mid')   type = wpick([['rocky',3],['terran',3],['ocean',2],['desert',2]]);
+    else                    type = wpick([['ice',4],['gas',4],['rocky',2]]);
+    const T = PTYPES[type];
+    const size = type==='gas' ? rr(80,130) : rr(28,105);
+    const hue = type==='gas' ? pick(GASHUES)+rr(-10,10) : T.hue + rr(-T.hj, T.hj);
+    const rich = forced==='rocky' ? rr(1.1,1.5) : rr(0.6,1.8);
+    const cRich = forced==='rocky' ? true : R() < 0.22;
+    const p = {
+      i:pi, id:'p'+si+'_'+pi, type, size, hue, sat:T.sat,
+      orbit, a0:rr(0,TAU), osp:(0.9/Math.sqrt(orbit))* (R()<.5?1:-1) * rr(.6,1.2),
+      rotSpd: rr(0.015,0.05)*(R()<.5?1:-1),
+      rich, cRich, rates: planetRates(type, rich, cRich),
+      f:{}, // visual features
+    };
+    // precompute visual features (stable, cheap to draw)
+    const fr = mulberry32(Math.floor(R()*1e9));
+    const frr = (a,b)=> a+fr()*(b-a);
+    if(T.feat==='craters' || T.feat==='desert'){
+      p.f.craters = [];
+      const n = Math.floor(size/14)+2;
+      for(let k=0;k<n;k++) p.f.craters.push({a:frr(0,TAU), d:frr(.15,.8), r:frr(.07,.18)});
+      if(T.feat==='desert'){ p.f.dunes = []; for(let k=0;k<4;k++) p.f.dunes.push({y:frr(-.7,.7), t:fr()<.5?1:3}); }
+    }
+    if(T.feat==='bands'){
+      p.f.bands = [];
+      let y = -.9;
+      while(y < .85){ const h = frr(.1,.26); p.f.bands.push({y, h, t: fr()<.5?1:3}); y += h + frr(.02,.1); }
+      p.f.storm = fr()<.6 ? {a:frr(0,TAU), d:frr(.3,.6), r:frr(.1,.18)} : null;
+    }
+    if(T.feat==='ice'){
+      p.f.streaks = []; for(let k=0;k<5;k++) p.f.streaks.push({y:frr(-.5,.5), w:frr(.3,.9)});
+    }
+    if(T.feat==='lava'){
+      p.f.cracks = [];
+      const n = ri(5,8);
+      for(let k=0;k<n;k++){
+        const pts = [], segs = ri(3,5); let a = frr(0,TAU), d = frr(.05,.2);
+        for(let s2=0;s2<segs;s2++){ pts.push([a,d]); a += frr(-.7,.7); d += frr(.12,.25); }
+        p.f.cracks.push(pts);
+      }
+    }
+    if(T.feat==='terran' || T.feat==='ocean'){
+      p.f.blobs = [];
+      const n = T.feat==='terran' ? ri(4,7) : ri(2,4);
+      for(let k=0;k<n;k++) p.f.blobs.push({a:frr(0,TAU), d:frr(.1,.75), r:frr(.12,.3), r2:frr(.08,.2), a2:frr(0,TAU)});
+    }
+    return p;
+  }
+  function makeSystem(i, x, y, isHome){
+    const sun = pickSun();
+    const s = { i, x, y, name: isHome ? 'SOLHAVEN' : sysName(),
+      sun:{ r: isHome?260:rr(170,420), h:sun.h, s:sun.s, cls:sun.name },
+      planets:[], station:null, maxR:0 };
+    const n = isHome ? 3 : ri(2,7);
+    let orbit = s.sun.r + rr(380,560);
+    const forcedHome = ['terran','rocky','ice'];
+    for(let pi=0; pi<n; pi++){
+      const f = (pi)/(Math.max(1,n-1));
+      const zone = f<0.34 ? 'inner' : (f<0.67 ? 'mid' : 'outer');
+      s.planets.push(makePlanet(i, pi, orbit, zone, isHome?forcedHome[pi]:null));
+      orbit += rr(430,780);
+    }
+    if(isHome || R() < 0.14){
+      s.station = { id:'st'+i, orbit: orbit - rr(150,320), a0: rr(0,TAU),
+        osp: 0.5/Math.sqrt(orbit), name:'WAYPOINT '+pick(GREEK),
+        prices:{} };
+      for(const k of RESKEYS) s.station.prices[k] = rr(0.7,1.5);
+    }
+    s.maxR = orbit + 320;
+    return s;
+  }
+  const systems = [ makeSystem(0, 0, 0, true) ];
+  let attempts = 0;
+  while(systems.length < 150 && attempts < 4000){
+    attempts++;
+    const a = R()*TAU, d = Math.sqrt(R())*WORLD_R;
+    const x = Math.cos(a)*d, y = Math.sin(a)*d;
+    let ok = true;
+    for(const s of systems){ if(hyp(s.x-x, s.y-y) < 2500){ ok=false; break; } }
+    if(ok) systems.push(makeSystem(systems.length, x, y, false));
+  }
+  const anomalies = [];
+  let ai = 0;
+  while(anomalies.length < 72 && ai < 2000){
+    ai++;
+    const a = R()*TAU, d = Math.sqrt(R())*WORLD_R;
+    const x = Math.cos(a)*d, y = Math.sin(a)*d;
+    let ok = true;
+    for(const s of systems){ if(hyp(s.x-x, s.y-y) < s.maxR*0.5){ ok=false; break; } }
+    if(ok) anomalies.push({ id:'a'+anomalies.length, x, y,
+      type: wpick([['cache',4],['crystal',3.5],['derelict',2.5]]) });
+  }
+  const gal = { seed, systems, anomalies };
+  // guaranteed starter anomaly near spawn (set after spawn known in newState)
+  return gal;
+}
+function indexGalaxy(){
+  PIDX = new Map(); SIDX = new Map();
+  for(const s of GAL.systems){
+    for(const p of s.planets) PIDX.set(p.id, {sys:s, p});
+    if(s.station) SIDX.set(s.station.id, {sys:s});
+  }
+}
+function planetPos(sys, p, t){
+  const a = p.a0 + t*p.osp;
+  return { x: sys.x + Math.cos(a)*p.orbit, y: sys.y + Math.sin(a)*p.orbit };
+}
+function stationPos(sys, t){
+  const st = sys.station, a = st.a0 + t*st.osp;
+  return { x: sys.x + Math.cos(a)*st.orbit, y: sys.y + Math.sin(a)*st.orbit };
+}
+
+/* ---------------- GAME STATE ---------------- */
+let G = null;               // full game state
+let MODE = 'menu';          // 'menu' | 'play'
+const FUELMAX = 100;
+
+function newState(seed){
+  GAL = genGalaxy(seed); indexGalaxy();
+  const home = GAL.systems[0];
+  const stp = stationPos(home, 0);
+  const spawn = { x: stp.x + 210, y: stp.y + 120 };
+  /* systems overlap in dense regions — never materialize inside ANY star's heat zone */
+  for(let iter=0; iter<GAL.systems.length; iter++){
+    let hot = null;
+    for(const s of GAL.systems){
+      const d = hyp(s.x-spawn.x, s.y-spawn.y);
+      if(d < s.sun.r + 650){ hot = {s, d}; break; }
+    }
+    if(!hot) break;
+    const ux = hot.d>1 ? (spawn.x-hot.s.x)/hot.d : 1;
+    const uy = hot.d>1 ? (spawn.y-hot.s.y)/hot.d : 0;
+    spawn.x = hot.s.x + ux*(hot.s.sun.r + 700);
+    spawn.y = hot.s.y + uy*(hot.s.sun.r + 700);
+  }
+  // starter anomaly close to spawn
+  GAL.anomalies.unshift({ id:'a_start', x:spawn.x+1200, y:spawn.y-700, type:'crystal' });
+  G = {
+    seed, time:0, playSec:0,
+    x:spawn.x, y:spawn.y, vx:0, vy:0, ang:-Math.PI/2,
+    fuel:FUELMAX, hull:100,
+    credits:500,
+    cargo:{metal:45, ice:0, gas:0, organics:22, crystal:0},
+    research:new Set(), visited:new Set([0]), scanned:new Set(),
+    anomTaken:new Set(), colonies:{}, routes:[],
+    milestones:{}, flags:{},
+    navTarget:null,
+    warpCd:0,
+  };
+  return G;
+}
+function serialize(){
+  return {
+    seed:G.seed, time:G.time, playSec:G.playSec,
+    x:G.x, y:G.y, ang:G.ang, fuel:G.fuel, hull:G.hull,
+    credits:G.credits, cargo:G.cargo,
+    research:[...G.research], visited:[...G.visited], scanned:[...G.scanned],
+    anomTaken:[...G.anomTaken], colonies:G.colonies, routes:G.routes,
+    milestones:G.milestones, flags:G.flags, navTarget:G.navTarget||null,
+  };
+}
+async function saveGame(){
+  if(!G) return;
+  await stSet('astronomics_save', serialize());
+}
+function applySave(o){
+  GAL = genGalaxy(o.seed); indexGalaxy();
+  const home = GAL.systems[0];
+  const stp = stationPos(home, 0);
+  GAL.anomalies.unshift({ id:'a_start', x:stp.x+210+1200, y:stp.y+120-700, type:'crystal' });
+  G = {
+    seed:o.seed, time:o.time||0, playSec:o.playSec||0,
+    x:o.x, y:o.y, vx:0, vy:0, ang:o.ang||0,
+    fuel:o.fuel, hull:o.hull, credits:o.credits,
+    cargo:Object.assign({metal:0,ice:0,gas:0,organics:0,crystal:0}, o.cargo),
+    research:new Set(o.research||[]), visited:new Set(o.visited||[0]),
+    scanned:new Set(o.scanned||[]), anomTaken:new Set(o.anomTaken||[]),
+    colonies:o.colonies||{}, routes:o.routes||[],
+    milestones:o.milestones||{}, flags:o.flags||{},
+    navTarget:o.navTarget||null,
+    warpCd:0,
+  };
+  // older saves: freighters had no levels; owners of HEAVY FREIGHTERS keep their edge
+  for(const r of G.routes) if(!r.lvl) r.lvl = G.research.has('log2') ? 2 : 1;
+}
+/* research-derived stats */
+const hasR   = id => G && G.research.has(id);
+const spdMult  = () => (hasR('eng1')?1.3:1) * (hasR('eng2')?1.35:1);
+const prodMult = () => (hasR('mine1')?1.35:1) * (hasR('mine2')?1.35:1);
+const cargoCap = () => 80 + (hasR('cargo1')?60:0) + (hasR('cargo2')?120:0);
+const scanRange= () => 850 * (hasR('scan1')?1.6:1);
+const fuelMult = () => hasR('fuel1')?0.6:1;
+const maxHull  = () => 100 + (hasR('hull1')?50:0);
+const heatMult = () => hasR('hull1')?0.5:1;
+const FR_LVL = { 1:{cap:40, spdMin:210, spdMax:320}, 2:{cap:65, spdMin:300, spdMax:440}, 3:{cap:90, spdMin:380, spdMax:550} };
+const frUpCost = lvl => lvl===1 ? {metal:20, credits:300} : {metal:35, credits:600}; // cost to reach lvl+1
+const termUpCost = () => ({metal:30, credits:400});
+const termRouteCap = col => (col.b.terminal>=2 ? 3 : 1);
+const routesFrom = pid => G.routes.filter(r=>r.from===pid);
+function cargoUsed(){ let n=0; for(const k of RESKEYS) n += G.cargo[k]; return Math.round(n); }
+function canColonize(type){
+  if(type==='lava'||type==='desert') return hasR('hab1');
+  if(type==='gas') return hasR('hab2');
+  return true;
+}
+function colonySlots(p){ return p.size<46?2 : (p.size<72?3:4); }
+function colonyCap(col){ return 200 + (col.b.silo||0)*250; }
+function colonyMult(col){ return (1 + 0.25*(col.b.habitat||0)) * prodMult(); }
+
+/* ---------------- 5. INPUT ---------------- */
+const keys = {};
+addEventListener('keydown', e=>{
+  if(document.activeElement && document.activeElement.tagName==='INPUT') return;
+  keys[e.code] = true;
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
+  if(MODE!=='play') return;
+  if(e.code==='KeyE'||e.code==='Enter'){ if(!modalOpen()) interact(); }
+  if(e.code==='KeyM'){ mapVisible() ? closeMap() : (panelVisible()?0:openMap()); }
+  if(e.code==='KeyR'){ if(!mapVisible()){ panelVisible() ? closePanel() : showResearch(); } }
+  if(e.code==='Escape'){
+    if(mapVisible()) closeMap();
+    else if(panelVisible()) closePanel();
+    else showMenu();
+  }
+});
+addEventListener('keyup', e=>{ keys[e.code] = false; });
+
+/* touch joystick */
+const stick = { active:false, id:null, dx:0, dy:0 };
+const stickEl = $('stick'), knobEl = $('knob');
+function stickCenter(){
+  const r = stickEl.getBoundingClientRect();
+  return { x:r.left + r.width/2, y:r.top + r.height/2, rad:r.width/2 };
+}
+stickEl.addEventListener('pointerdown', e=>{
+  stick.active = true; stick.id = e.pointerId;
+  stickEl.setPointerCapture(e.pointerId); moveStick(e);
+});
+stickEl.addEventListener('pointermove', e=>{ if(stick.active && e.pointerId===stick.id) moveStick(e); });
+function endStick(e){
+  if(e.pointerId!==stick.id) return;
+  stick.active=false; stick.dx=0; stick.dy=0;
+  knobEl.style.transform = 'translate(0,0)';
+}
+stickEl.addEventListener('pointerup', endStick);
+stickEl.addEventListener('pointercancel', endStick);
+function moveStick(e){
+  const c = stickCenter();
+  let dx = e.clientX-c.x, dy = e.clientY-c.y;
+  const d = hyp(dx,dy), m = c.rad-20;
+  if(d>m){ dx = dx/d*m; dy = dy/d*m; }
+  stick.dx = dx/m; stick.dy = dy/m;
+  knobEl.style.transform = `translate(${dx}px,${dy}px)`;
+}
+let boostHeld = false;
+$('abBoost').addEventListener('pointerdown', ()=>boostHeld=true);
+$('abBoost').addEventListener('pointerup',   ()=>boostHeld=false);
+$('abBoost').addEventListener('pointercancel',()=>boostHeld=false);
+$('abInteract').addEventListener('click', ()=>{ if(!modalOpen()) interact(); });
+
+function stickVec(){ // touch joystick: point in a direction to fly there
+  if(!stick.active) return {x:0, y:0, on:false};
+  let x = stick.dx, y = stick.dy;
+  const d = hyp(x,y);
+  if(d>1){ x/=d; y/=d; }
+  return {x, y, on: d>0.15};
+}
+function keyCtl(){ // keyboard: W thrust · A/D turn · S brake
+  return {
+    turn: (keys.KeyD||keys.ArrowRight ? 1 : 0) - (keys.KeyA||keys.ArrowLeft ? 1 : 0),
+    thrust: !!(keys.KeyW||keys.ArrowUp),
+    brake:  !!(keys.KeyS||keys.ArrowDown),
+  };
+}
+
+/* ---------------- UI helpers used by actions ---------------- */
+function toast(msg, cls){
+  const box = $('toasts');
+  const d = document.createElement('div');
+  d.className = 'toast'+(cls?' '+cls:'');
+  d.textContent = msg;
+  box.appendChild(d);
+  while(box.children.length>5) box.removeChild(box.firstChild);
+  setTimeout(()=>{ d.classList.add('fadeOut'); setTimeout(()=>d.remove(), 850); }, 3800);
+}
+function costStr(c){
+  const parts = [];
+  if(c.metal)    parts.push(c.metal+' ME');
+  if(c.organics) parts.push(c.organics+' OR');
+  if(c.crystal)  parts.push(c.crystal+' CR');
+  if(c.credits)  parts.push('¤'+fmt(c.credits));
+  return parts.join(' · ');
+}
+function canPay(c){
+  if(c.credits && G.credits < c.credits) return false;
+  for(const k of ['metal','organics','crystal']) if(c[k] && G.cargo[k] < c[k]) return false;
+  return true;
+}
+function pay(c){
+  if(!canPay(c)) return false;
+  if(c.credits) G.credits -= c.credits;
+  for(const k of ['metal','organics','crystal']) if(c[k]) G.cargo[k] -= c[k];
+  return true;
+}
+
+/* ---------------- INTERACTION TARGETS ---------------- */
+let CURSYS = null;   // system the ship is currently inside
+function findCurSys(){
+  // System zones overlap heavily (stars can be 2500 apart, zones reach ~6000),
+  // so "first zone containing the ship" often picks a neighboring system —
+  // making its own planets undockable/unscannable. Instead, assign the system
+  // whose nearest BODY (star, planet, or station) is closest to the ship.
+  CURSYS = null;
+  let bestD = Infinity;
+  for(const s of GAL.systems){
+    const dSun = hyp(s.x-G.x, s.y-G.y);
+    if(dSun - s.maxR > 900) continue;      // cheap reject: far outside this system
+    let d = dSun;
+    for(const p of s.planets){
+      const pos = planetPos(s, p, G.time);
+      d = Math.min(d, hyp(pos.x-G.x, pos.y-G.y));
+    }
+    if(s.station){
+      const pos = stationPos(s, G.time);
+      d = Math.min(d, hyp(pos.x-G.x, pos.y-G.y));
+    }
+    if(d < bestD){ bestD = d; CURSYS = s; }
+  }
+}
+function computeInteract(){
+  // Docking must not depend on which single system the ship is "assigned" to —
+  // system zones overlap, so check every nearby system for the closest body.
+  let best = null;
+  for(const sys of GAL.systems){
+    if(hyp(sys.x-G.x, sys.y-G.y) - sys.maxR > 900) continue;
+    for(const p of sys.planets){
+      const pos = planetPos(sys, p, G.time);
+      const d = hyp(pos.x-G.x, pos.y-G.y);
+      if(d < p.size + 120 && (!best || d < best.d)){
+        const col = G.colonies[p.id];
+        best = { kind:'planet', id:p.id, d,
+          name: col ? col.name : (G.scanned.has(p.id) ? sysPlanetName(sys,p) : 'UNKNOWN BODY') };
+      }
+    }
+    if(sys.station){
+      const pos = stationPos(sys, G.time);
+      const d = hyp(pos.x-G.x, pos.y-G.y);
+      if(d < 165 && (!best || d < best.d))
+        best = { kind:'station', id:sys.station.id, d, name:sys.station.name };
+    }
+  }
+  return best;
+}
+function sysPlanetName(sys, p){ return sys.name+' '+ROMAN[p.i]; }
+function interact(){
+  const t = computeInteract();
+  if(!t){ return; }
+  SND.ensure(); SND.blip();
+  G.vx = 0; G.vy = 0;
+  /* anchor the ship to the body so it rides along with its orbit while docked */
+  let pos = null;
+  if(t.kind==='planet'){ const ref = PIDX.get(t.id); if(ref) pos = planetPos(ref.sys, ref.p, G.time); }
+  else { const ref = SIDX.get(t.id); if(ref) pos = stationPos(ref.sys, G.time); }
+  G.dockAnchor = pos ? { kind:t.kind, id:t.id, dx:G.x-pos.x, dy:G.y-pos.y } : null;
+  if(t.kind==='planet') showPlanet(t.id);
+  else showStation(t.id);
+}
+
+/* ---------------- ECONOMY ACTIONS ---------------- */
+const COLONIZE_COST = {metal:15, organics:10, credits:100};
+function extractorCost(lvl){ // cost to buy level lvl+1
+  return [{metal:10,credits:50},{metal:20,credits:150},{metal:40,credits:350},{metal:70,credits:700}][lvl];
+}
+const siloCost    = n => ({metal:15+10*n, credits:100+100*n});
+const habCost     = n => ({metal:20, organics:15, credits:200+150*n});
+const depotCost   = () => ({metal:15, credits:150});
+const termCost    = () => ({metal:25, credits:300});
+
+function colonize(pid){
+  const ref = PIDX.get(pid); if(!ref || G.colonies[pid]) return;
+  if(!canColonize(ref.p.type)){ SND.err(); return; }
+  if(!pay(COLONIZE_COST)){ SND.err(); toast('INSUFFICIENT SUPPLIES FOR COLONY', 'bad'); return; }
+  const storage = {}; for(const k of RESKEYS) storage[k]=0;
+  G.colonies[pid] = { name: sysPlanetName(ref.sys, ref.p), b:{extractor:0,silo:0,habitat:0,depot:0,terminal:0}, storage };
+  SND.thunk(); toast('COLONY ESTABLISHED — '+G.colonies[pid].name, 'good');
+  spawnBurst(planetPos(ref.sys, ref.p, G.time), ref.p.hue);
+  showPlanet(pid); saveGame();
+}
+function buildAt(pid, key){
+  const col = G.colonies[pid]; if(!col) return;
+  const ref = PIDX.get(pid);
+  let cost = null, ok = true, label = '';
+  if(key==='extractor'){
+    const lvl = col.b.extractor, max = colonySlots(ref.p);
+    if(lvl>=max) ok=false; else { cost = extractorCost(lvl); label = EXTNAME[ref.p.type]; }
+  } else if(key==='silo'){ if(col.b.silo>=3) ok=false; else { cost=siloCost(col.b.silo); label='STORAGE SILO'; } }
+  else if(key==='habitat'){ if(col.b.habitat>=3) ok=false; else { cost=habCost(col.b.habitat); label='HABITAT DOME'; } }
+  else if(key==='depot'){ if(col.b.depot) ok=false; else { cost=depotCost(); label='FUEL DEPOT'; } }
+  else if(key==='terminal'){
+    if(!hasR('log1')) ok=false;
+    else if(!col.b.terminal){ cost=termCost(); label='FREIGHT TERMINAL'; }
+    else if(col.b.terminal===1 && hasR('logA')){ cost=termUpCost(); label='FREIGHT TERMINAL II'; }
+    else ok=false;
+  }
+  if(!ok || !cost){ SND.err(); return; }
+  if(!pay(cost)){ SND.err(); toast('INSUFFICIENT RESOURCES — HAUL METAL HERE', 'bad'); return; }
+  col.b[key]++;
+  G.flags.built = true;
+  SND.thunk(); toast(label+' CONSTRUCTED', 'good');
+  showPlanet(pid); saveGame();
+}
+function collectAll(pid){
+  const col = G.colonies[pid]; if(!col) return;
+  let moved = 0;
+  for(const k of RESKEYS){
+    const space = cargoCap() - cargoUsed();
+    if(space<=0) break;
+    const take = Math.min(col.storage[k], space);
+    if(take>0){ col.storage[k] -= take; G.cargo[k] += take; moved += take; }
+  }
+  if(moved>0){ G.flags.collected = true; SND.coin(); toast('COLLECTED '+fmt(moved)+' UNITS'); }
+  else { SND.err(); toast(cargoUsed()>=cargoCap()?'CARGO HOLD FULL':'NOTHING TO COLLECT', 'bad'); }
+  showPlanet(pid);
+}
+function repairColony(pid){
+  const need = Math.ceil((maxHull()-G.hull)/3);
+  const use = Math.min(need, Math.floor(G.cargo.metal));
+  if(use<=0){ SND.err(); return; }
+  G.cargo.metal -= use; G.hull = Math.min(maxHull(), G.hull + use*3);
+  SND.thunk(); toast('HULL PATCHED (+'+(use*3)+')');
+  showPlanet(pid);
+}
+function sellRes(sid, res, amt){
+  const ref = SIDX.get(sid); if(!ref) return;
+  const st = ref.sys.station;
+  const q = Math.min(amt==='all' ? G.cargo[res] : amt, G.cargo[res]);
+  if(q<=0){ SND.err(); return; }
+  const gain = Math.floor(q * BASEPRICE[res] * st.prices[res]);
+  G.cargo[res] -= q; G.credits += gain;
+  G.flags.sold = true;
+  SND.coin(); toast('SOLD '+fmt(q)+' '+RESMETA[res].n+' — ¤'+fmt(gain), 'good');
+  showStation(sid);
+}
+let TRADE_AMT = 1; // shared buy/sell quantity: 1, 10, or 'all'
+window.setTradeAmt = (sid, v) => { TRADE_AMT = v==='all' ? 'all' : +v; showStation(sid); };
+const BUY_MARKUP = 1.4; // stations resell above their local price
+function buyPrice(st, res){ return BASEPRICE[res] * st.prices[res] * BUY_MARKUP; }
+function buyRes(sid, res, amt){
+  const ref = SIDX.get(sid); if(!ref) return;
+  const st = ref.sys.station;
+  const price = buyPrice(st, res);
+  const space = cargoCap() - cargoUsed();
+  const afford = Math.floor(G.credits / price);
+  const q = Math.min(amt==='all' ? 1e9 : amt, space, afford);
+  if(q<=0){
+    SND.err();
+    toast(space<=0 ? 'CARGO HOLD FULL' : 'INSUFFICIENT CREDITS', 'bad');
+    return;
+  }
+  const cost = Math.ceil(q*price);
+  G.credits -= cost; G.cargo[res] += q;
+  SND.coin(); toast('BOUGHT '+fmt(q)+' '+RESMETA[res].n+' — ¤'+fmt(cost), 'good');
+  showStation(sid);
+}
+window.buyRes = buyRes;
+function buyFuel(sid, amt){
+  const need = FUELMAX - G.fuel;
+  const q = Math.min(amt==='fill' ? need : amt, need);
+  const cost = Math.ceil(q*2);
+  if(q<=0.5){ SND.err(); return; }
+  if(G.credits < cost){ SND.err(); toast('INSUFFICIENT CREDITS', 'bad'); return; }
+  G.credits -= cost; G.fuel += q;
+  SND.blip(); showStation(sid);
+}
+function repairStation(sid){
+  const need = maxHull() - G.hull;
+  const cost = Math.ceil(need*3);
+  if(need<=0){ SND.err(); return; }
+  if(G.credits < cost){ SND.err(); toast('INSUFFICIENT CREDITS', 'bad'); return; }
+  G.credits -= cost; G.hull = maxHull();
+  SND.thunk(); toast('HULL FULLY REPAIRED');
+  showStation(sid);
+}
+function doResearch(id){
+  const r = RESEARCH.find(x=>x.id===id);
+  if(!r || hasR(id)) return;
+  if(r.req && !hasR(r.req)){ SND.err(); return; }
+  if(!pay(r.cost)){ SND.err(); toast('NEED '+costStr(r.cost), 'bad'); return; }
+  G.research.add(id);
+  SND.ping(); toast('RESEARCH COMPLETE — '+r.name, 'good');
+  showResearch(); saveGame();
+}
+
+/* ---------------- ROUTES ---------------- */
+function addRoute(fromPid, to){
+  const col = G.colonies[fromPid];
+  if(!col || !col.b.terminal){ SND.err(); toast('SOURCE NEEDS A FREIGHT TERMINAL', 'bad'); return false; }
+  if(routesFrom(fromPid).length >= termRouteCap(col)){
+    SND.err();
+    toast(col.b.terminal>=2 ? 'TERMINAL AT ROUTE LIMIT (3)' : 'UPGRADE THE TERMINAL FOR MORE ROUTES', 'bad');
+    return false;
+  }
+  if(to.k==='p' && !G.colonies[to.id]){ SND.err(); return false; }
+  if(G.credits < 200){ SND.err(); toast('ROUTE COSTS ¤200', 'bad'); return false; }
+  G.credits -= 200;
+  G.routes.push({ from:fromPid, to, t:0, dir:1, load:null, lvl:1 });
+  SND.coin(); toast('TRADE ROUTE ESTABLISHED', 'good'); saveGame();
+  return true;
+}
+function delRoute(i){
+  if(G.routes[i]){ G.routes.splice(i,1); SND.blip(); }
+}
+function routeEnds(r){
+  const a = PIDX.get(r.from);
+  const A = planetPos(a.sys, a.p, G.time);
+  let B;
+  if(r.to.k==='p'){ const b = PIDX.get(r.to.id); B = planetPos(b.sys, b.p, G.time); }
+  else { const b = SIDX.get(r.to.id); B = stationPos(b.sys, G.time); }
+  return {A, B};
+}
+function routesUpdate(dt){
+  for(const r of G.routes){
+    const {A, B} = routeEnds(r);
+    const d = Math.max(200, hyp(B.x-A.x, B.y-A.y));
+    const lv = FR_LVL[r.lvl||1];
+    r.load = r.load || {};
+    let carried = 0; for(const k of RESKEYS) carried += r.load[k]||0;
+    if(r.dir===1 && r.t<=0){
+      /* at the source dock: top up from storage (undelivered leftovers stay aboard) */
+      const col = G.colonies[r.from];
+      if(col){
+        let cap = lv.cap - carried;
+        for(const k of RESKEYS){
+          if(cap<=0) break;
+          const take = Math.min(col.storage[k], cap);
+          if(take>0){ col.storage[k]-=take; r.load[k]=(r.load[k]||0)+take; cap-=take; carried+=take; }
+        }
+      }
+      if(carried <= 0.001){ r.t = 0; continue; } /* nothing to haul — hold at the dock */
+    }
+    /* speed scales with load: empty flies at max, a full hold slows to min */
+    const spd = lerp(lv.spdMax, lv.spdMin, clamp(carried/lv.cap, 0, 1));
+    r.t += (dt*spd/d) * r.dir;
+    if(r.dir===1 && r.t>=1){
+      r.t = 1; r.dir = -1;
+      if(r.to.k==='p'){
+        /* deliver only what fits under the destination's storage cap; keep the rest aboard */
+        const dst = G.colonies[r.to.id];
+        if(dst){
+          const cap2 = colonyCap(dst);
+          for(const k of RESKEYS){
+            const amt = r.load[k]||0; if(!amt) continue;
+            const dep = Math.min(amt, Math.max(0, cap2 - dst.storage[k]));
+            dst.storage[k] += dep;
+            if(amt - dep > 0.001) r.load[k] = amt - dep; else delete r.load[k];
+          }
+        }
+      } else {
+        const st = SIDX.get(r.to.id).sys.station;
+        let gain = 0;
+        for(const k of RESKEYS) if(r.load[k]) gain += r.load[k]*BASEPRICE[k]*st.prices[k];
+        gain = Math.floor(gain);
+        r.load = {};
+        if(gain>0){ G.credits += gain; toast('FREIGHT SOLD — ¤'+fmt(gain)); }
+      }
+    }
+    if(r.dir===-1 && r.t<=0){ r.t = 0; r.dir = 1; } /* leftovers merge into the next load */
+  }
+}
+
+/* ---------------- WARP ---------------- */
+function warpCost(pid){
+  const ref = PIDX.get(pid);
+  const pos = planetPos(ref.sys, ref.p, G.time);
+  return hyp(pos.x-G.x, pos.y-G.y)/900 * fuelMult();
+}
+let WARPFX = 0;
+function tryWarp(pid){
+  if(!hasR('warp1') || G.warpCd>0) { SND.err(); return; }
+  const cost = warpCost(pid);
+  if(G.fuel < cost){ SND.err(); toast('INSUFFICIENT FUEL FOR WARP ('+Math.ceil(cost)+' NEEDED)', 'bad'); return; }
+  const ref = PIDX.get(pid);
+  const pos = planetPos(ref.sys, ref.p, G.time);
+  const away = Math.atan2(pos.y-ref.sys.y, pos.x-ref.sys.x);
+  G.fuel -= cost;
+  G.x = pos.x + Math.cos(away)*(ref.p.size+280);
+  G.y = pos.y + Math.sin(away)*(ref.p.size+280);
+  G.vx = 0; G.vy = 0; G.warpCd = 4; G.dockAnchor = null;
+  WARPFX = 1; SND.warp();
+  closeMap();
+  toast('WARP COMPLETE — '+G.colonies[pid].name);
+}
+
+/* ---------------- MILESTONES ---------------- */
+function milestoneDone(id){
+  switch(id){
+    case 'm_scan':   return G.scanned.size>0;
+    case 'm_col1':   return Object.keys(G.colonies).length>0;
+    case 'm_build':  return !!G.flags.built;
+    case 'm_collect':return !!G.flags.collected;
+    case 'm_sell':   return !!G.flags.sold;
+    case 'm_res':    return G.research.size>0;
+    case 'm_col3':   return Object.keys(G.colonies).length>=3;
+    case 'm_route':  return G.routes.length>0;
+    case 'm_vis10':  return G.visited.size>=10;
+    case 'm_anom5':  return G.anomTaken.size>=5;
+    case 'm_cr5k':   return G.credits>=5000;
+    case 'm_col6':   return Object.keys(G.colonies).length>=6;
+  }
+  return false;
+}
+let msTimer = 0;
+function checkMilestones(dt){
+  msTimer -= dt; if(msTimer>0) return;
+  msTimer = 0.5;
+  for(const m of MILESTONES){
+    if(G.milestones[m.id]) continue;
+    if(milestoneDone(m.id)){
+      G.milestones[m.id] = true;
+      if(m.r.credits) G.credits += m.r.credits;
+      if(m.r.crystal) G.cargo.crystal += m.r.crystal;
+      const rw = [];
+      if(m.r.credits) rw.push('¤'+m.r.credits);
+      if(m.r.crystal) rw.push(m.r.crystal+' CR');
+      SND.ping();
+      toast('MILESTONE — '+m.t+'  [+'+rw.join(' +')+']', 'good');
+    }
+  }
+}
+function currentObjective(){
+  for(const m of MILESTONES) if(!G.milestones[m.id]) return m.t;
+  return 'THE NETWORK IS YOURS, COMMANDER';
+}
+
+/* ---------------- SIMULATION ---------------- */
+let HEAT = 0, saveTimer = 0;
+function update(dt){
+  G.time += dt; G.playSec += dt;
+  G.warpCd = Math.max(0, G.warpCd - dt);
+  G.handCd = Math.max(0, (G.handCd||0) - dt);
+  if(G.navTarget){ // arrived at tracked planet -> clear the pointer
+    const ref = PIDX.get(G.navTarget.id);
+    if(!ref) G.navTarget = null;
+    else {
+      const pos = planetPos(ref.sys, ref.p, G.time);
+      if(hyp(pos.x-G.x, pos.y-G.y) < ref.p.size + 240){
+        G.navTarget = null;
+        SND.ping(); toast('NAV TARGET REACHED', 'good');
+      }
+    }
+  }
+  WARPFX = Math.max(0, WARPFX - dt*1.4);
+  findCurSys();
+
+  /* ship control — keyboard: W thrust · A/D turn · S brake · SPACE/SHIFT boost.
+     Touch stick: point in a direction to steer + thrust that way. */
+  const controlsOn = !modalOpen();
+  const iv = controlsOn ? stickVec() : {x:0,y:0,on:false};
+  const kc = controlsOn ? keyCtl() : {turn:0, thrust:false, brake:false};
+  const wantThrust = iv.on || kc.thrust;
+  const boosting = controlsOn && (keys.Space||keys.ShiftLeft||keys.ShiftRight||boostHeld) && wantThrust && G.fuel>0.2;
+  let thrusting = false;
+  if(iv.on){ // stick steers the ship toward where it points
+    const target = Math.atan2(iv.y, iv.x);
+    let da = target - G.ang;
+    while(da>Math.PI) da-=TAU; while(da<-Math.PI) da+=TAU;
+    G.ang += clamp(da, -4.2*dt, 4.2*dt);
+  } else if(kc.turn){
+    G.ang += 3.4*dt*kc.turn;
+  }
+  if(wantThrust){
+    const noFuel = G.fuel<=0.05;
+    const acc = 380 * spdMult() * (boosting?1.85:1) * (noFuel?0.25:1);
+    G.vx += Math.cos(G.ang)*acc*dt;
+    G.vy += Math.sin(G.ang)*acc*dt;
+    if(!noFuel) G.fuel = Math.max(0, G.fuel - (0.5 + (boosting?1.2:0))*fuelMult()*dt);
+    thrusting = true;
+    if(Math.random()<dt*30) spawnThrust();
+  }
+  if(kc.brake){ G.vx *= Math.pow(0.02, dt); G.vy *= Math.pow(0.02, dt); }
+  const drag = Math.exp(-1.15*dt);
+  G.vx *= drag; G.vy *= drag;
+  G.x += G.vx*dt; G.y += G.vy*dt;
+  G.thrusting = thrusting; G.boosting = boosting;
+
+  /* soft world boundary */
+  const dw = hyp(G.x, G.y);
+  if(dw > WORLD_R+2500){ G.vx -= G.x/dw*300*dt; G.vy -= G.y/dw*300*dt; }
+
+  /* docked: stay anchored to the body — ride along with its orbit */
+  if(G.dockAnchor && panelVisible()){
+    const a = G.dockAnchor;
+    let pos = null;
+    if(a.kind==='planet'){ const ref = PIDX.get(a.id); if(ref) pos = planetPos(ref.sys, ref.p, G.time); }
+    else { const ref = SIDX.get(a.id); if(ref) pos = stationPos(ref.sys, G.time); }
+    if(pos){ G.x = pos.x + a.dx; G.y = pos.y + a.dy; G.vx = 0; G.vy = 0; }
+  } else if(G.dockAnchor && !panelVisible()){
+    G.dockAnchor = null;
+  }
+
+  /* system discovery + scanning + heat */
+  let heatTarget = 0;
+  if(CURSYS){
+    if(!G.visited.has(CURSYS.i)){
+      G.visited.add(CURSYS.i);
+      SND.ping(); toast('SYSTEM CHARTED — '+CURSYS.name, 'good');
+    }
+    const sr = scanRange();
+    for(const p of CURSYS.planets){
+      if(G.scanned.has(p.id)) continue;
+      const pos = planetPos(CURSYS, p, G.time);
+      if(hyp(pos.x-G.x, pos.y-G.y) < sr + p.size){
+        G.scanned.add(p.id);
+        SND.scanp();
+        toast('SCAN COMPLETE — '+sysPlanetName(CURSYS,p)+' ['+PTYPES[p.type].label+']');
+      }
+    }
+    /* star heat */
+    const ds = hyp(CURSYS.x-G.x, CURSYS.y-G.y);
+    const hz = CURSYS.sun.r + 300;
+    if(ds < hz){
+      const k = clamp((hz-ds)/300, 0, 1.4);
+      heatTarget = clamp(k,0,1);
+      G.hull -= 22*k*k*heatMult()*dt;
+    }
+  }
+  HEAT = lerp(HEAT, heatTarget, 1-Math.exp(-6*dt));
+
+  /* anomalies */
+  for(const a of GAL.anomalies){
+    if(G.anomTaken.has(a.id)) continue;
+    if(hyp(a.x-G.x, a.y-G.y) < 80) pickupAnomaly(a);
+  }
+
+  /* colony production */
+  for(const pid in G.colonies){
+    const col = G.colonies[pid];
+    const lvl = col.b.extractor;
+    if(lvl<=0) continue;
+    const ref = PIDX.get(pid);
+    const mult = lvl * colonyMult(col);
+    const cap = colonyCap(col);
+    for(const k in ref.p.rates){
+      if(col.storage[k] < cap)
+        col.storage[k] = Math.min(cap, col.storage[k] + ref.p.rates[k]/60*mult*dt);
+    }
+  }
+
+  /* fuel depot auto-refuel when near own colony with depot */
+  const near = computeInteract();
+  if(near && near.kind==='planet'){
+    const col = G.colonies[near.id];
+    if(col && col.b.depot && G.fuel < FUELMAX){
+      let pump = 10*dt;
+      while(pump>0 && G.fuel<FUELMAX){
+        if(col.storage.gas >= 0.5){ const u=Math.min(0.5,pump/2); col.storage.gas-=u; G.fuel=Math.min(FUELMAX,G.fuel+u*2); pump-=u*2; }
+        else if(col.storage.ice >= 0.5){ const u=Math.min(0.5,pump); col.storage.ice-=u; G.fuel=Math.min(FUELMAX,G.fuel+u); pump-=u; }
+        else break;
+      }
+    }
+  }
+  G.nearTarget = near;
+
+  routesUpdate(dt);
+  checkMilestones(dt);
+  updateParticles(dt);
+
+  /* hull failure -> tow */
+  if(G.hull <= 0){
+    let tow = null, td = 1e12;
+    for(const pid in G.colonies){
+      const ref = PIDX.get(pid);
+      const pos = planetPos(ref.sys, ref.p, G.time);
+      const d = hyp(pos.x-G.x, pos.y-G.y);
+      if(d<td){ td=d; tow=pos; }
+    }
+    if(!tow){ const stp = stationPos(GAL.systems[0], G.time); tow = {x:stp.x+210,y:stp.y+120}; }
+    G.x = tow.x+180; G.y = tow.y+120; G.vx=0; G.vy=0; G.dockAnchor = null;
+    G.hull = Math.floor(maxHull()*0.5); G.fuel = Math.max(G.fuel, FUELMAX*0.4);
+    G.credits = Math.floor(G.credits*0.9);
+    SND.err(); toast('SHIP DISABLED — TOWED TO SAFETY (-10% CREDITS)', 'bad');
+  }
+
+  saveTimer += dt;
+  if(saveTimer > 25){ saveTimer = 0; saveGame(); }
+}
+
+function pickupAnomaly(a){
+  G.anomTaken.add(a.id);
+  const R = mulberry32(seedFromString(a.id)+G.seed);
+  if(a.type==='cache'){
+    const c = 80 + Math.floor(R()*150);
+    G.credits += c;
+    let me = 8 + Math.floor(R()*14), or = 5 + Math.floor(R()*10);
+    let space = Math.max(0, cargoCap() - cargoUsed());
+    me = Math.min(me, space); space -= me;
+    or = Math.min(or, space);
+    G.cargo.metal += me; G.cargo.organics += or;
+    SND.coin();
+    toast('SUPPLY CACHE RECOVERED — ¤'+c+(me?' +'+me+' ME':'')+(or?' +'+or+' OR':''), 'good');
+  } else if(a.type==='crystal'){
+    const c = 2 + Math.floor(R()*4);
+    G.cargo.crystal += c; SND.ping();
+    toast('CRYSTAL FORMATION HARVESTED — +'+c+' CR', 'good');
+  } else {
+    const c = 100 + Math.floor(R()*200), cr = 1 + Math.floor(R()*3);
+    G.credits += c; G.cargo.crystal += cr; SND.ping();
+    toast('DERELICT SALVAGED — ¤'+c+' +'+cr+' CR', 'good');
+    toast(LORE[Math.floor(R()*LORE.length)]);
+  }
+  spawnBurst({x:a.x, y:a.y}, 48);
+}
+
+/* ---------------- PARTICLES ---------------- */
+const PARTS = [];
+function spawnThrust(){
+  const back = G.ang + Math.PI;
+  PARTS.push({ x:G.x+Math.cos(back)*14, y:G.y+Math.sin(back)*14,
+    vx:G.vx*0.3+Math.cos(back)*80+(Math.random()-.5)*40,
+    vy:G.vy*0.3+Math.sin(back)*80+(Math.random()-.5)*40,
+    life:.5, max:.5, hue:34, sz:2.5 });
+}
+function spawnBurst(pos, hue){
+  for(let i=0;i<26;i++){
+    const a = Math.random()*TAU, s = 60+Math.random()*200;
+    PARTS.push({ x:pos.x, y:pos.y, vx:Math.cos(a)*s, vy:Math.sin(a)*s,
+      life:.9, max:.9, hue, sz:3 });
+  }
+}
+function updateParticles(dt){
+  for(let i=PARTS.length-1;i>=0;i--){
+    const p = PARTS[i];
+    p.life -= dt; p.x += p.vx*dt; p.y += p.vy*dt;
+    if(p.life<=0) PARTS.splice(i,1);
+  }
+}
+
+/* ---------------- 7. RENDERING ---------------- */
+const WCV = $('world'), WX = WCV.getContext('2d');
+const MMC = $('mm'), MMX = MMC.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+function resizeAll(){
+  DPR = Math.min(2, window.devicePixelRatio||1);
+  W = innerWidth; H = innerHeight;
+  WCV.width = W*DPR; WCV.height = H*DPR;
+  WCV.style.width = W+'px'; WCV.style.height = H+'px';
+  const wrapW = $('mmWrap').clientWidth || 150; // wrapper width is CSS-fixed, no feedback loop
+  const ms = Math.max(60, wrapW - 14);           // minus button border+padding
+  MMC.width = ms*DPR; MMC.height = ms*DPR;
+  MMC.style.width = ms+'px'; MMC.style.height = ms+'px';
+  const mc = $('mapC');
+  mc.width = W*DPR; mc.height = H*DPR;
+}
+addEventListener('resize', resizeAll);
+
+const cam = { x:0, y:0, zoom:0.55 };
+let demoT = 0;
+
+function tonesFor(body){ // 5 shades of one hue, dark -> light
+  if(body._tones) return body._tones;
+  const Ls = [15, 27, 41, 55, 70];
+  body._tones = Ls.map(l => hsl(body.hue!==undefined?body.hue:body.h, body.sat!==undefined?body.sat:body.s, l));
+  body._tonesA = (i,a)=> hsl(body.hue!==undefined?body.hue:body.h, body.sat!==undefined?body.sat:body.s, Ls[i], a);
+  return body._tones;
+}
+
+/* --- starfield layers (infinite, hashed) --- */
+function drawStars(par, tile, per, size, alphaBase, t){
+  const ox = cam.x*par, oy = cam.y*par;
+  const x0 = Math.floor((ox - W/2)/tile), x1 = Math.floor((ox + W/2)/tile);
+  const y0 = Math.floor((oy - H/2)/tile), y1 = Math.floor((oy + H/2)/tile);
+  for(let ty=y0; ty<=y1; ty++) for(let tx=x0; tx<=x1; tx++){
+    const n = Math.floor(hash3(tx,ty,1)*per)+1;
+    for(let k=0;k<n;k++){
+      const hx = hash3(tx,ty,k*3+7), hy = hash3(tx,ty,k*3+8), hb = hash3(tx,ty,k*3+9);
+      const sx = tx*tile + hx*tile - ox + W/2;
+      const sy = ty*tile + hy*tile - oy + H/2;
+      const tw = 0.65 + 0.35*Math.sin(t*(0.5+hb*2)+hb*20);
+      WX.globalAlpha = alphaBase*tw;
+      WX.fillStyle = hb>0.9 ? '#ffe9c9' : (hb<0.08 ? '#bcd6ff' : '#e8ecf2');
+      WX.fillRect(sx, sy, size, size);
+    }
+  }
+  WX.globalAlpha = 1;
+}
+function drawNebula(t){
+  const par = 0.12, tile = 2300;
+  const ox = cam.x*par, oy = cam.y*par;
+  const x0 = Math.floor((ox - W/2)/tile)-1, x1 = Math.floor((ox + W/2)/tile)+1;
+  const y0 = Math.floor((oy - H/2)/tile)-1, y1 = Math.floor((oy + H/2)/tile)+1;
+  const hues = [206, 276, 330, 162, 26];
+  for(let ty=y0; ty<=y1; ty++) for(let tx=x0; tx<=x1; tx++){
+    if(hash3(tx,ty,44) > 0.4) continue;
+    const hx = hash3(tx,ty,45), hy = hash3(tx,ty,46);
+    const sx = tx*tile + hx*tile - ox + W/2;
+    const sy = ty*tile + hy*tile - oy + H/2;
+    const r = 380 + hash3(tx,ty,47)*620;
+    const hue = hues[Math.floor(hash3(tx,ty,48)*hues.length)];
+    const g = WX.createRadialGradient(sx,sy,0,sx,sy,r);
+    g.addColorStop(0, hsl(hue,60,40,.05));
+    g.addColorStop(1, hsl(hue,60,40,0));
+    WX.fillStyle = g;
+    WX.fillRect(sx-r, sy-r, r*2, r*2);
+  }
+}
+
+/* --- celestial bodies --- */
+function drawSunBody(sys, t){
+  const s = sys.sun; tonesFor(s);
+  const pulse = 1 + 0.02*Math.sin(t*1.2 + sys.i);
+  const r = s.r*pulse;
+  // outer glow
+  const g = WX.createRadialGradient(sys.x,sys.y, r*0.4, sys.x,sys.y, r*2.4);
+  g.addColorStop(0, hsl(s.h, s.s, 62, .5));
+  g.addColorStop(0.5, hsl(s.h, s.s, 55, .12));
+  g.addColorStop(1, hsl(s.h, s.s, 50, 0));
+  WX.fillStyle = g;
+  WX.fillRect(sys.x-r*2.4, sys.y-r*2.4, r*4.8, r*4.8);
+  // banded core, tones of one hue
+  const Ls = [88, 76, 62, 48];
+  const Rs = [0.55, 0.75, 0.9, 1];
+  for(let i=3;i>=0;i--){
+    WX.beginPath(); WX.arc(sys.x, sys.y, r*Rs[i], 0, TAU);
+    WX.fillStyle = hsl(s.h, s.s, Ls[i]);
+    WX.fill();
+  }
+  // slow corona ring
+  WX.save();
+  WX.translate(sys.x, sys.y); WX.rotate(t*0.06);
+  WX.strokeStyle = hsl(s.h, s.s, 70, .3);
+  WX.lineWidth = 3; WX.setLineDash([26, 34]);
+  WX.beginPath(); WX.arc(0,0, r*1.14, 0, TAU); WX.stroke();
+  WX.setLineDash([]);
+  WX.restore();
+}
+function drawPlanetBody(sys, p, x, y, t){
+  const T = tonesFor(p), r = p.size;
+  const sunAng = Math.atan2(sys.y - y, sys.x - x); // light comes from the sun
+  WX.save();
+  WX.translate(x, y);
+  WX.beginPath(); WX.arc(0,0,r,0,TAU);
+  WX.fillStyle = T[2]; WX.fill();
+  WX.save(); WX.clip();
+  /* features, rotating slowly, all tones of the planet's own hue */
+  WX.save(); WX.rotate(t*p.rotSpd);
+  const f = p.f;
+  if(f.craters){
+    for(const c of f.craters){
+      const cx = Math.cos(c.a)*c.d*r, cy = Math.sin(c.a)*c.d*r, cr = c.r*r;
+      WX.beginPath(); WX.arc(cx, cy, cr, 0, TAU); WX.fillStyle = T[1]; WX.fill();
+      WX.beginPath(); WX.arc(cx, cy, cr, -2.4, -0.6);
+      WX.strokeStyle = T[3]; WX.lineWidth = Math.max(1.2, cr*0.22); WX.stroke();
+    }
+  }
+  if(f.dunes){
+    WX.lineWidth = r*0.07;
+    for(const d of f.dunes){
+      WX.strokeStyle = p._tonesA(d.t, .55);
+      WX.beginPath(); WX.arc(0, d.y*r*2.2, r*1.9, Math.PI*1.36, Math.PI*1.64); WX.stroke();
+    }
+  }
+  if(f.bands){
+    for(const b of f.bands){
+      WX.fillStyle = p._tonesA(b.t, .75);
+      WX.fillRect(-r, b.y*r, r*2, b.h*r);
+    }
+    if(f.storm){
+      const sx2 = Math.cos(f.storm.a)*f.storm.d*r, sy2 = Math.sin(f.storm.a)*f.storm.d*r*0.6;
+      WX.beginPath(); WX.ellipse(sx2, sy2, f.storm.r*r*1.4, f.storm.r*r*0.8, 0, 0, TAU);
+      WX.fillStyle = T[0]; WX.fill();
+      WX.beginPath(); WX.ellipse(sx2, sy2, f.storm.r*r*1.4, f.storm.r*r*0.8, 0, 0, TAU);
+      WX.strokeStyle = T[4]; WX.lineWidth = r*0.02+1; WX.stroke();
+    }
+  }
+  if(f.streaks){ // ice caps + streaks
+    WX.fillStyle = T[4];
+    WX.beginPath(); WX.arc(0, -r*1.32, r*0.72, 0, TAU); WX.fill();
+    WX.beginPath(); WX.arc(0,  r*1.32, r*0.72, 0, TAU); WX.fill();
+    WX.strokeStyle = p._tonesA(3,.5); WX.lineWidth = r*0.05;
+    for(const s2 of f.streaks){
+      WX.beginPath(); WX.moveTo(-r*s2.w, s2.y*r); WX.lineTo(r*s2.w, s2.y*r+r*0.08); WX.stroke();
+    }
+  }
+  if(f.cracks){
+    WX.strokeStyle = T[4]; WX.lineWidth = Math.max(1.5, r*0.045);
+    WX.lineJoin = 'round';
+    for(const pts of f.cracks){
+      WX.beginPath();
+      for(let i2=0;i2<pts.length;i2++){
+        const px = Math.cos(pts[i2][0])*pts[i2][1]*r, py = Math.sin(pts[i2][0])*pts[i2][1]*r;
+        i2===0 ? WX.moveTo(px,py) : WX.lineTo(px,py);
+      }
+      WX.stroke();
+    }
+    WX.globalAlpha = .35 + .15*Math.sin(t*2+p.i);
+    WX.strokeStyle = p._tonesA(4,.6); WX.lineWidth = Math.max(3, r*0.1);
+    for(const pts of f.cracks){
+      WX.beginPath();
+      for(let i2=0;i2<pts.length;i2++){
+        const px = Math.cos(pts[i2][0])*pts[i2][1]*r, py = Math.sin(pts[i2][0])*pts[i2][1]*r;
+        i2===0 ? WX.moveTo(px,py) : WX.lineTo(px,py);
+      }
+      WX.stroke();
+    }
+    WX.globalAlpha = 1;
+  }
+  if(f.blobs){
+    const dark = p.type==='ocean';
+    WX.fillStyle = dark ? T[1] : p._tonesA(1,.9);
+    for(const b of f.blobs){
+      const bx = Math.cos(b.a)*b.d*r, by = Math.sin(b.a)*b.d*r;
+      WX.beginPath(); WX.arc(bx, by, b.r*r, 0, TAU); WX.fill();
+      WX.beginPath(); WX.arc(bx+Math.cos(b.a2)*b.r*r, by+Math.sin(b.a2)*b.r*r, b.r2*r, 0, TAU); WX.fill();
+    }
+    if(p.type==='terran'){ WX.fillStyle = T[4];
+      WX.beginPath(); WX.arc(0,-r*1.36, r*0.62, 0, TAU); WX.fill(); }
+  }
+  WX.restore(); // rotation
+  /* banded day/night shading toward the sun — same hue only */
+  const hx = Math.cos(sunAng)*r*0.55, hy = Math.sin(sunAng)*r*0.55;
+  const hi = WX.createRadialGradient(hx,hy,0, hx,hy, r*1.9);
+  hi.addColorStop(0.00, p._tonesA(4,.42)); hi.addColorStop(0.22, p._tonesA(4,.42));
+  hi.addColorStop(0.221,p._tonesA(4,.16)); hi.addColorStop(0.42, p._tonesA(4,.16));
+  hi.addColorStop(0.421,'rgba(0,0,0,0)');
+  hi.addColorStop(0.62, 'rgba(0,0,0,0)');
+  hi.addColorStop(0.621,p._tonesA(0,.38)); hi.addColorStop(0.80, p._tonesA(0,.38));
+  hi.addColorStop(0.801,p._tonesA(0,.72)); hi.addColorStop(1.00, p._tonesA(0,.72));
+  WX.fillStyle = hi;
+  WX.fillRect(-r,-r,r*2,r*2);
+  WX.restore(); // clip
+  /* thin rim + atmosphere for lush worlds */
+  WX.beginPath(); WX.arc(0,0,r,0,TAU);
+  WX.strokeStyle = p._tonesA(3,.4); WX.lineWidth = 1.5; WX.stroke();
+  if(p.type==='terran'||p.type==='ocean'||p.type==='gas'){
+    WX.beginPath(); WX.arc(0,0,r*1.07,0,TAU);
+    WX.strokeStyle = p._tonesA(4,.16); WX.lineWidth = r*0.09; WX.stroke();
+  }
+  /* colony markers */
+  const col = G && G.colonies[p.id];
+  if(!col && G && G.scanned.has(p.id) && !canColonize(p.type)){
+    /* habitat-locked world: quiet red dashed ring until the tech is researched */
+    WX.save(); WX.rotate(t*0.08);
+    WX.strokeStyle = 'rgba(255,122,107,.42)'; WX.lineWidth = 1.4;
+    WX.setLineDash([4, 11]);
+    WX.beginPath(); WX.arc(0,0, r+14, 0, TAU); WX.stroke();
+    WX.setLineDash([]); WX.restore();
+  }
+  if(col){
+    WX.save(); WX.rotate(t*0.25);
+    WX.strokeStyle = 'rgba(255,180,84,.65)'; WX.lineWidth = 1.6;
+    WX.setLineDash([10, 14]);
+    WX.beginPath(); WX.arc(0,0, r+14, 0, TAU); WX.stroke();
+    WX.setLineDash([]); WX.restore();
+    const nd = sunAng + Math.PI; // night side lights
+    WX.fillStyle = '#ffd166';
+    for(let k2=0;k2<3;k2++){
+      const a2 = nd + (k2-1)*0.45;
+      WX.beginPath(); WX.arc(Math.cos(a2)*r*0.82, Math.sin(a2)*r*0.82, Math.max(1.6, r*0.035), 0, TAU); WX.fill();
+    }
+  }
+  WX.restore();
+  /* labels */
+  if(G && (G.scanned.has(p.id) || col)){
+    WX.font = `${11/cam.zoom}px ui-monospace, monospace`;
+    WX.textAlign = 'center';
+    WX.fillStyle = col ? 'rgba(255,180,84,.9)' : 'rgba(233,220,194,.55)';
+    WX.fillText((col?col.name:sysPlanetName(sys,p)), x, y + r + 26/cam.zoom);
+  }
+}
+function drawStationBody(sys, t){
+  const pos = stationPos(sys, t);
+  WX.save(); WX.translate(pos.x, pos.y); WX.rotate(t*0.1);
+  const T = {hue:188, sat:46}; tonesFor(T);
+  WX.strokeStyle = T._tones[3]; WX.fillStyle = T._tones[1]; WX.lineWidth = 2.5;
+  WX.strokeRect(-16,-16,32,32); WX.fillRect(-16,-16,32,32);
+  WX.beginPath(); WX.moveTo(-46,0); WX.lineTo(46,0); WX.stroke();
+  WX.fillStyle = T._tones[2];
+  WX.fillRect(-46,-9,16,18); WX.fillRect(30,-9,16,18);
+  WX.strokeRect(-46,-9,16,18); WX.strokeRect(30,-9,16,18);
+  WX.restore();
+  const blink = (t%1.4)<0.7;
+  if(blink){ WX.fillStyle = '#7fe9ff';
+    WX.beginPath(); WX.arc(pos.x, pos.y-24, 3, 0, TAU); WX.fill(); }
+  WX.font = `${11/cam.zoom}px ui-monospace, monospace`;
+  WX.textAlign = 'center';
+  WX.fillStyle = 'rgba(127,233,255,.7)';
+  WX.fillText(sys.station.name, pos.x, pos.y + 46);
+  return pos;
+}
+
+/* nav compass — a faint chevron beside the ship. Cyan: nearest station.
+   Amber: a planet you chose to TRACK on the galaxy map. */
+function navGoal(){
+  if(G.navTarget){
+    const ref = PIDX.get(G.navTarget.id);
+    if(ref){
+      const pos = planetPos(ref.sys, ref.p, G.time);
+      return { x:pos.x, y:pos.y, amber:true, near: ref.p.size + 260 };
+    }
+    G.navTarget = null; // stale reference
+  }
+  let best = null;
+  for(const sys of GAL.systems){
+    if(!sys.station) continue;
+    const pos = stationPos(sys, G.time);
+    const d = hyp(pos.x-G.x, pos.y-G.y);
+    if(!best || d < best.d) best = { x:pos.x, y:pos.y, d, amber:false, near: 420 };
+  }
+  return best;
+}
+function drawCompass(t){
+  const goal = navGoal();
+  if(!goal) return;
+  const d = hyp(goal.x-G.x, goal.y-G.y);
+  if(d < goal.near) return; // target is basically on screen
+  const a = Math.atan2(goal.y-G.y, goal.x-G.x);
+  const R = 54;
+  const pulse = 0.32 + 0.10*Math.sin(t*2.2);
+  const col = goal.amber ? `rgba(255,180,84,${pulse+0.08})` : `rgba(127,233,255,${pulse})`;
+  WX.save();
+  WX.translate(G.x, G.y); WX.rotate(a);
+  WX.strokeStyle = col; WX.lineWidth = 2.6; WX.lineCap = 'round';
+  WX.beginPath(); WX.arc(0, 0, R, -0.42, 0.42); WX.stroke();
+  WX.beginPath();
+  WX.moveTo(R+2, -6); WX.lineTo(R+10, 0); WX.lineTo(R+2, 6);
+  WX.stroke();
+  WX.restore();
+  /* small upright distance tag just past the chevron */
+  WX.font = `${10/cam.zoom}px ui-monospace, monospace`;
+  WX.textAlign = 'center';
+  WX.fillStyle = goal.amber ? 'rgba(255,180,84,.5)' : 'rgba(127,233,255,.45)';
+  const lx = G.x + Math.cos(a)*(R+34/cam.zoom), ly = G.y + Math.sin(a)*(R+34/cam.zoom);
+  WX.fillText(d>=1000 ? (d/1000).toFixed(1)+'K' : Math.round(d)+'', lx, ly);
+}
+function drawShip(t){
+  WX.save();
+  WX.translate(G.x, G.y); WX.rotate(G.ang);
+  if(G.thrusting){
+    const fl = 12 + Math.random()*10 + (G.boosting?10:0);
+    WX.beginPath();
+    WX.moveTo(-13, 5); WX.lineTo(-13-fl, 0); WX.lineTo(-13, -5);
+    WX.closePath();
+    WX.fillStyle = Math.random()<.5 ? '#ffd166' : '#ff9a5a';
+    WX.fill();
+  }
+  WX.beginPath();
+  WX.moveTo(19, 0); WX.lineTo(-12, 10); WX.lineTo(-7, 0); WX.lineTo(-12, -10);
+  WX.closePath();
+  WX.fillStyle = '#dde6ef'; WX.fill();
+  WX.strokeStyle = '#8fa3b8'; WX.lineWidth = 1.5; WX.stroke();
+  WX.beginPath(); WX.arc(6, 0, 3.4, 0, TAU);
+  WX.fillStyle = '#ffb454'; WX.fill();
+  WX.restore();
+}
+
+/* --- main world draw --- */
+function draw(t){
+  WX.setTransform(DPR,0,0,DPR,0,0);
+  WX.fillStyle = '#05060a'; WX.fillRect(0,0,W,H);
+
+  /* camera */
+  if(MODE==='menu'){
+    demoT = t;
+    cam.x = Math.cos(t*0.05)*5200 + 800;
+    cam.y = Math.sin(t*0.037)*5200;
+    cam.zoom = 0.5;
+  } else {
+    const spd = hyp(G.vx, G.vy);
+    const targetZoom = lerp(0.58, 0.42, clamp(spd/700, 0, 1));
+    cam.zoom = lerp(cam.zoom, targetZoom, 0.04);
+    cam.x = lerp(cam.x, G.x + G.vx*0.35, 0.12);
+    cam.y = lerp(cam.y, G.y + G.vy*0.35, 0.12);
+  }
+
+  drawNebula(t);
+  drawStars(0.30, 430, 5, 1, .45, t);
+  drawStars(0.55, 430, 3, 1.4, .6, t);
+  drawStars(0.85, 430, 1.6, 2, .85, t);
+
+  WX.save();
+  WX.translate(W/2, H/2);
+  WX.scale(cam.zoom, cam.zoom);
+  WX.translate(-cam.x, -cam.y);
+  const viewR = hyp(W,H)/(2*cam.zoom) + 500;
+  const simT = MODE==='menu' ? t*0.4 : G.time;
+
+  /* trade route dotted lines (in-world) */
+  if(G){
+    WX.setLineDash([14, 22]);
+    WX.strokeStyle = 'rgba(255,180,84,.13)'; WX.lineWidth = 2/cam.zoom;
+    for(const r of G.routes){
+      const {A,B} = routeEnds(r);
+      if(hyp(A.x-cam.x,A.y-cam.y) > viewR+9000 && hyp(B.x-cam.x,B.y-cam.y) > viewR+9000) continue;
+      WX.beginPath(); WX.moveTo(A.x,A.y); WX.lineTo(B.x,B.y); WX.stroke();
+    }
+    WX.setLineDash([]);
+  }
+
+  for(const sys of GAL.systems){
+    if(hyp(sys.x-cam.x, sys.y-cam.y) > viewR + sys.maxR) continue;
+    /* orbit rings */
+    WX.strokeStyle = 'rgba(233,220,194,.05)'; WX.lineWidth = 1.5/cam.zoom;
+    for(const p of sys.planets){
+      WX.beginPath(); WX.arc(sys.x, sys.y, p.orbit, 0, TAU); WX.stroke();
+    }
+    drawSunBody(sys, simT);
+    if(G && G.visited.has(sys.i)){
+      WX.font = `${13/cam.zoom}px ui-monospace, monospace`;
+      WX.textAlign = 'center';
+      WX.fillStyle = 'rgba(138,129,114,.75)';
+      WX.fillText(sys.name, sys.x, sys.y + sys.sun.r + 40/cam.zoom);
+    }
+    for(const p of sys.planets){
+      const pos = planetPos(sys, p, simT);
+      if(hyp(pos.x-cam.x, pos.y-cam.y) > viewR + p.size) continue;
+      drawPlanetBody(sys, p, pos.x, pos.y, simT);
+    }
+    if(sys.station) drawStationBody(sys, simT);
+  }
+
+  /* anomalies */
+  if(G) for(const a of GAL.anomalies){
+    if(G.anomTaken.has(a.id)) continue;
+    if(hyp(a.x-cam.x, a.y-cam.y) > viewR) continue;
+    const pl = 0.6 + 0.4*Math.sin(t*3 + a.x*0.01);
+    WX.save(); WX.translate(a.x, a.y); WX.rotate(t*0.8);
+    WX.strokeStyle = `rgba(255,209,102,${pl})`; WX.lineWidth = 2.5;
+    WX.strokeRect(-9,-9,18,18);
+    WX.restore();
+    WX.strokeStyle = `rgba(255,209,102,${pl*0.3})`;
+    WX.beginPath(); WX.arc(a.x, a.y, 26 + 8*pl, 0, TAU); WX.stroke();
+  }
+
+  /* freighters */
+  if(G) for(const r of G.routes){
+    const {A,B} = routeEnds(r);
+    const fx = lerp(A.x, B.x, r.t), fy = lerp(A.y, B.y, r.t);
+    if(hyp(fx-cam.x, fy-cam.y) > viewR) continue;
+    const fa = Math.atan2(B.y-A.y, B.x-A.x) + (r.dir===-1?Math.PI:0);
+    WX.save(); WX.translate(fx, fy); WX.rotate(fa);
+    WX.fillStyle = r.dir===1 ? '#ffb454' : 'rgba(255,180,84,.45)';
+    WX.beginPath(); WX.moveTo(9,0); WX.lineTo(-7,5); WX.lineTo(-7,-5);
+    WX.closePath(); WX.fill();
+    WX.restore();
+  }
+
+  /* particles */
+  for(const p of PARTS){
+    WX.globalAlpha = p.life/p.max;
+    WX.fillStyle = hsl(p.hue, 90, 62);
+    WX.fillRect(p.x - p.sz/2, p.y - p.sz/2, p.sz, p.sz);
+  }
+  WX.globalAlpha = 1;
+
+  if(MODE==='play'){ drawShip(t); drawCompass(t); }
+  WX.restore();
+
+  /* screen fx */
+  $('heatFx').style.opacity = HEAT*0.9;
+  $('warpFx').style.opacity = WARPFX*0.85;
+}
+
+/* ---------------- MINIMAP ---------------- */
+const MM_RANGE = 4500;
+function drawMinimap(t){
+  const s = MMC.width/DPR;
+  MMX.setTransform(DPR,0,0,DPR,0,0);
+  MMX.clearRect(0,0,s,s);
+  MMX.fillStyle = 'rgba(3,4,8,.85)'; MMX.fillRect(0,0,s,s);
+  const k = (s/2 - 6)/MM_RANGE;
+  const cx = s/2, cy = s/2;
+  MMX.save();
+  MMX.beginPath(); MMX.arc(cx, cy, s/2 - 3, 0, TAU); MMX.clip();
+  for(const sys of GAL.systems){
+    const dx = (sys.x-G.x)*k, dy = (sys.y-G.y)*k;
+    if(hyp(dx,dy) > s) continue;
+    /* motion trails — each planet drags a fading arc covering its last ~45s of
+       travel, so faster planets get longer trails and the curve points at its sun */
+    const dc = hyp(dx,dy), R = s/2 - 3;
+    const TRAIL_T = 45; // seconds of orbital history shown
+    MMX.lineWidth = 1.2;
+    for(const p of sys.planets){
+      const or = p.orbit*k;
+      if(Math.abs(dc - or) > R) continue; // arc can never enter the scope
+      const aNow = p.a0 + G.time*p.osp;
+      const sweep = clamp(Math.abs(p.osp)*TRAIL_T, 0.1, 2.1) * Math.sign(p.osp||1);
+      const col = G.colonies[p.id];
+      MMX.lineWidth = col ? 2.2 : 1.2;
+      const SEG = 7;
+      for(let i2=0;i2<SEG;i2++){
+        const f0 = i2/SEG, f1 = (i2+1)/SEG;
+        const a0 = aNow - sweep*(1-f0), a1 = aNow - sweep*(1-f1);
+        const locked = !col && G.scanned.has(p.id) && !canColonize(p.type);
+        const alpha = col ? (0.10 + 0.85*f1) : (locked ? (0.06 + 0.36*f1) : (0.04 + 0.30*f1));
+        MMX.strokeStyle = col ? `rgba(255,180,84,${alpha})`
+          : locked ? `rgba(255,122,107,${alpha})` : `rgba(233,220,194,${alpha})`;
+        MMX.beginPath();
+        MMX.moveTo(cx+dx+Math.cos(a0)*or, cy+dy+Math.sin(a0)*or);
+        MMX.lineTo(cx+dx+Math.cos(a1)*or, cy+dy+Math.sin(a1)*or);
+        MMX.stroke();
+      }
+    }
+    const sr = clamp(sys.sun.r*k*2.1, 1.8, 3.6);
+    const gl = MMX.createRadialGradient(cx+dx, cy+dy, sr*0.4, cx+dx, cy+dy, sr*2.9);
+    gl.addColorStop(0, hsl(sys.sun.h, sys.sun.s, 60, .42));
+    gl.addColorStop(1, hsl(sys.sun.h, sys.sun.s, 60, 0));
+    MMX.fillStyle = gl;
+    MMX.beginPath(); MMX.arc(cx+dx, cy+dy, sr*2.9, 0, TAU); MMX.fill();
+    MMX.fillStyle = hsl(sys.sun.h, sys.sun.s, 68);
+    MMX.beginPath(); MMX.arc(cx+dx, cy+dy, sr, 0, TAU); MMX.fill();
+    for(const p of sys.planets){
+      const pos = planetPos(sys, p, G.time);
+      const px = (pos.x-G.x)*k, py = (pos.y-G.y)*k;
+      const col = G.colonies[p.id];
+      MMX.fillStyle = col ? '#ffb454' : hsl(p.hue, p.sat, G.scanned.has(p.id)?62:34);
+      MMX.beginPath(); MMX.arc(cx+px, cy+py, col?2.6:1.7, 0, TAU); MMX.fill();
+      if(col){ MMX.strokeStyle = 'rgba(255,180,84,.6)';
+        MMX.beginPath(); MMX.arc(cx+px, cy+py, 4.6, 0, TAU); MMX.stroke(); }
+    }
+    if(sys.station){
+      const sp = stationPos(sys, G.time);
+      const st = sys.station;
+      const sor = st.orbit*k;
+      if(Math.abs(dc - sor) <= R){ // cyan trail, same time-window as planets
+        const aNow = st.a0 + G.time*st.osp;
+        const sweep = clamp(Math.abs(st.osp)*TRAIL_T, 0.1, 2.1) * Math.sign(st.osp||1);
+        MMX.lineWidth = 1.2;
+        const SEG = 7;
+        for(let i2=0;i2<SEG;i2++){
+          const f0 = i2/SEG, f1 = (i2+1)/SEG;
+          const a0 = aNow - sweep*(1-f0), a1 = aNow - sweep*(1-f1);
+          MMX.strokeStyle = `rgba(127,233,255,${0.05 + 0.34*f1})`;
+          MMX.beginPath();
+          MMX.moveTo(cx+dx+Math.cos(a0)*sor, cy+dy+Math.sin(a0)*sor);
+          MMX.lineTo(cx+dx+Math.cos(a1)*sor, cy+dy+Math.sin(a1)*sor);
+          MMX.stroke();
+        }
+      }
+      MMX.fillStyle = '#7fe9ff';
+      MMX.fillRect(cx+(sp.x-G.x)*k-2, cy+(sp.y-G.y)*k-2, 4, 4);
+    }
+  }
+  if(hasR('scan2')){
+    const blink = (t%1)<0.55;
+    if(blink) for(const a of GAL.anomalies){
+      if(G.anomTaken.has(a.id)) continue;
+      const dx = (a.x-G.x)*k, dy = (a.y-G.y)*k;
+      if(hyp(dx,dy) > s/2) continue;
+      MMX.save(); MMX.translate(cx+dx, cy+dy); MMX.rotate(Math.PI/4);
+      MMX.strokeStyle = '#ffd166'; MMX.strokeRect(-2.5,-2.5,5,5);
+      MMX.restore();
+    }
+  }
+  /* ship */
+  MMX.save(); MMX.translate(cx, cy); MMX.rotate(G.ang);
+  MMX.fillStyle = '#e9dcc2';
+  MMX.beginPath(); MMX.moveTo(6,0); MMX.lineTo(-4,4); MMX.lineTo(-4,-4);
+  MMX.closePath(); MMX.fill();
+  MMX.restore();
+  MMX.restore();
+  MMX.strokeStyle = 'rgba(255,180,110,.4)';
+  MMX.beginPath(); MMX.arc(cx, cy, s/2-3, 0, TAU); MMX.stroke();
+}
+
+/* ---------------- 8. GALAXY MAP OVERLAY ---------------- */
+const MC = $('mapC'), MX = MC.getContext('2d');
+const MV = { x:0, y:0, s:0.018, mode:'view', srcPid:null, sel:null };
+function mapVisible(){ return $('mapWrap').style.display !== 'none'; }
+function openMap(){
+  if(!G) return;
+  $('mapWrap').style.display = 'block';
+  MV.x = G.x; MV.y = G.y; MV.mode = 'view'; MV.srcPid = null; MV.sel = null;
+  setHint(''); renderSide(null);
+  SND.blip();
+}
+function closeMap(){ $('mapWrap').style.display = 'none'; }
+function setHint(t){ $('mapHint').textContent = t; }
+function w2m(x,y){ return [(x-MV.x)*MV.s + W/2, (y-MV.y)*MV.s + H/2]; }
+
+/* pan / zoom / pinch / pick */
+const mpt = new Map();
+let dragMoved = 0;
+MC.addEventListener('pointerdown', e=>{
+  MC.setPointerCapture(e.pointerId);
+  mpt.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  dragMoved = 0;
+});
+MC.addEventListener('pointermove', e=>{
+  if(!mpt.has(e.pointerId)) return;
+  const prev = mpt.get(e.pointerId);
+  if(mpt.size===1){
+    MV.x -= (e.clientX-prev.x)/MV.s;
+    MV.y -= (e.clientY-prev.y)/MV.s;
+    dragMoved += Math.abs(e.clientX-prev.x)+Math.abs(e.clientY-prev.y);
+  } else if(mpt.size===2){
+    const pts = [...mpt.values()];
+    const other = pts.find(p=>p!==prev);
+    const d0 = hyp(prev.x-other.x, prev.y-other.y);
+    const d1 = hyp(e.clientX-other.x, e.clientY-other.y);
+    if(d0>0) MV.s = clamp(MV.s * d1/d0, 0.004, 0.2);
+    dragMoved += 10;
+  }
+  mpt.set(e.pointerId, {x:e.clientX, y:e.clientY});
+});
+function mapUp(e){
+  if(mpt.has(e.pointerId) && dragMoved < 8) mapPick(e.clientX, e.clientY);
+  mpt.delete(e.pointerId);
+}
+MC.addEventListener('pointerup', mapUp);
+MC.addEventListener('pointercancel', e=>mpt.delete(e.pointerId));
+MC.addEventListener('wheel', e=>{
+  e.preventDefault();
+  MV.s = clamp(MV.s * (e.deltaY<0 ? 1.15 : 0.87), 0.004, 0.2);
+}, {passive:false});
+$('btnZoomIn').addEventListener('click', ()=>{ MV.s = clamp(MV.s*1.35, 0.004, 0.2); });
+$('btnZoomOut').addEventListener('click',()=>{ MV.s = clamp(MV.s*0.74, 0.004, 0.2); });
+$('btnMapClose').addEventListener('click', closeMap);
+$('btnRoutes').addEventListener('click', ()=>{ MV.sel=null; renderRoutesSide(); });
+
+function sysVisibleOnMap(sys){ return G.visited.has(sys.i) || hasR('scan2'); }
+function mapPick(cx, cy){
+  let best = null, bd = 26;
+  for(const sys of GAL.systems){
+    if(!sysVisibleOnMap(sys)) continue;
+    const [sx, sy] = w2m(sys.x, sys.y);
+    const d = hyp(sx-cx, sy-cy);
+    if(d < bd){ bd = d; best = sys; }
+  }
+  if(best){ MV.sel = best; SND.blip(); renderSide(best); }
+}
+function renderSide(sys){
+  const el = $('mapSide');
+  if(!sys){ el.innerHTML = ''; return; }
+  const visited = G.visited.has(sys.i);
+  let h = `<div class="pTitle" style="font-size:13px">${sys.name}</div>
+    <div class="sub">${sys.sun.cls}${visited?'':' — UNCHARTED'}</div>`;
+  if(visited){
+    for(const p of sys.planets){
+      const col = G.colonies[p.id];
+      const scanned = G.scanned.has(p.id);
+      const nm = col ? col.name : (scanned ? sysPlanetName(sys,p) : 'UNSCANNED BODY');
+      let mid = '';
+      if(scanned){
+        mid = `<div class="mid"><div class="midIn">`;
+        for(const k in p.rates){
+          mid += `<div><b style="color:${RESMETA[k].c}">${RESMETA[k].tag}</b> `
+               + (col ? (p.rates[k]*col.b.extractor*colonyMult(col)).toFixed(1)+' / MIN'
+                      : p.rates[k].toFixed(1)+' / MIN·LVL')
+               + `</div>`;
+        }
+        mid += `<div class="stars" style="font-size:9px">${starRating(p.rich)}</div></div></div>`;
+      }
+      h += `<div class="row"><div class="lft" onclick="showPlanetInfo('${p.id}')" style="cursor:pointer;flex:0 1 auto">
+        <span class="hueDot" style="background:${hsl(p.hue,p.sat,55)}"></span>${nm}
+        <div class="cost">${scanned?PTYPES[p.type].label:'—'}${col?' · <span class="amb">COLONY</span>':''}</div>
+        </div>${mid}<div class="btns vstack">`;
+      if(MV.mode==='dst' && col && p.id!==MV.srcPid)
+        h += `<button class="act" onclick="mapPickDst('p','${p.id}')">DELIVER HERE</button>`;
+      if(MV.mode==='view'){
+        const tracked = G.navTarget && G.navTarget.id===p.id;
+        h += `<button class="act" ${tracked?'style="color:#ffb454;border-color:#ffb454"':''} onclick="navTrack('${p.id}')">${tracked?'TRACKING ◆':'TRACK'}</button>`;
+        if(col){
+          const wc = Math.ceil(warpCost(p.id));
+          const can = hasR('warp1') && G.fuel>=wc && G.warpCd<=0;
+          h += `<button class="act" ${can?'':'disabled'} onclick="tryWarp('${p.id}')">WARP · ${wc} FUEL</button>`;
+          if(!hasR('warp1')) h += `<div class="cost">NEEDS WARP DRIVE</div>`;
+        }
+      }
+      h += `</div></div>`;
+    }
+    if(sys.station){
+      h += `<div class="row"><div class="lft" style="color:#7fe9ff">${sys.station.name}
+        <div class="cost">TRADE STATION</div></div><div class="btns">`;
+      if(MV.mode==='dst')
+        h += `<button class="act" onclick="mapPickDst('st','${sys.station.id}')">SELL HERE</button>`;
+      h += `</div></div>`;
+    }
+  } else {
+    h += `<div class="sub" style="margin-top:8px">Fly there to chart this system.</div>`;
+  }
+  el.innerHTML = h;
+}
+function renderRoutesSide(){
+  const el = $('mapSide');
+  let h = `<div class="pTitle" style="font-size:13px">TRADE ROUTES</div>`;
+  if(!G.routes.length) h += `<div class="sub" style="margin-top:8px">No routes yet. Research FREIGHT LOGISTICS, build a FREIGHT TERMINAL, then dock at that colony and press NEW ROUTE there.</div>`;
+  G.routes.forEach((r,i)=>{
+    const from = G.colonies[r.from] ? G.colonies[r.from].name : '?';
+    let to = '?';
+    if(r.to.k==='p') to = G.colonies[r.to.id] ? G.colonies[r.to.id].name : '?';
+    else { const s = SIDX.get(r.to.id); to = s ? s.sys.station.name+' (SELL)' : '?'; }
+    h += `<div class="row"><div class="lft">${from} ▸ ${to}</div>
+      <div class="btns"><button class="act" onclick="mapDelRoute(${i})">SCRAP</button></div></div>`;
+  });
+  el.innerHTML = h;
+}
+window.mapPickDst = (k, id) => {
+  if(addRoute(MV.srcPid, {k, id})){ MV.mode='view'; MV.srcPid=null; setHint(''); renderRoutesSide(); }
+};
+window.mapDelRoute = i => { delRoute(i); renderRoutesSide(); };
+window.navTrack = pid => {
+  if(G.navTarget && G.navTarget.id===pid){
+    G.navTarget = null;
+    toast('TRACKING CLEARED');
+  } else {
+    G.navTarget = { k:'p', id:pid };
+    const ref = PIDX.get(pid);
+    const col = G.colonies[pid];
+    const nm = col ? col.name : (ref && G.scanned.has(pid) ? sysPlanetName(ref.sys, ref.p) : 'TARGET');
+    SND.blip();
+    toast('TRACKING '+nm+' — FOLLOW THE AMBER CHEVRON', 'good');
+  }
+  renderSide(MV.sel);
+};
+window.tryWarp = tryWarp;
+
+function renderMap(t){
+  MX.setTransform(DPR,0,0,DPR,0,0);
+  MX.fillStyle = '#04050a'; MX.fillRect(0,0,W,H);
+  /* chart rings */
+  const [gx, gy] = w2m(0,0);
+  MX.strokeStyle = 'rgba(233,220,194,.07)'; MX.lineWidth = 1;
+  for(let r=WORLD_R; r>0; r-=WORLD_R/3){
+    MX.beginPath(); MX.arc(gx, gy, r*MV.s, 0, TAU); MX.stroke();
+  }
+  MX.beginPath(); MX.moveTo(gx-14,gy); MX.lineTo(gx+14,gy);
+  MX.moveTo(gx,gy-14); MX.lineTo(gx,gy+14); MX.stroke();
+  /* routes */
+  MX.lineWidth = 1.2;
+  for(const r of G.routes){
+    const {A,B} = routeEnds(r);
+    const [ax,ay] = w2m(A.x,A.y), [bx,by] = w2m(B.x,B.y);
+    MX.strokeStyle = 'rgba(255,180,84,.4)';
+    MX.beginPath(); MX.moveTo(ax,ay); MX.lineTo(bx,by); MX.stroke();
+    MX.fillStyle = '#ffb454';
+    MX.beginPath(); MX.arc(lerp(ax,bx,r.t), lerp(ay,by,r.t), 3, 0, TAU); MX.fill();
+  }
+  /* systems */
+  for(const sys of GAL.systems){
+    const visited = G.visited.has(sys.i);
+    if(!visited && !hasR('scan2')) continue;
+    const [sx, sy] = w2m(sys.x, sys.y);
+    if(sx<-60||sx>W+60||sy<-60||sy>H+60) continue;
+    if(!visited){
+      MX.fillStyle = 'rgba(233,220,194,.22)';
+      MX.beginPath(); MX.arc(sx, sy, 2, 0, TAU); MX.fill();
+      continue;
+    }
+    MX.fillStyle = hsl(sys.sun.h, sys.sun.s, 62);
+    MX.beginPath(); MX.arc(sx, sy, 4.5, 0, TAU); MX.fill();
+    const hasCol = sys.planets.some(p2=>G.colonies[p2.id]);
+    if(hasCol){ // settled system: amber halo around the star
+      MX.strokeStyle = 'rgba(255,180,84,.85)'; MX.lineWidth = 1.4;
+      MX.beginPath(); MX.arc(sx, sy, 8.5, 0, TAU); MX.stroke();
+    }
+    MX.font = '10px ui-monospace, monospace'; MX.textAlign = 'center';
+    MX.fillStyle = hasCol ? 'rgba(255,180,84,.9)' : 'rgba(138,129,114,.85)';
+    MX.fillText(sys.name, sx, sy+18);
+    for(const p of sys.planets){
+      const pos = planetPos(sys, p, G.time);
+      const [px, py] = w2m(pos.x, pos.y);
+      const col = G.colonies[p.id];
+      if(col){
+        MX.save(); MX.translate(px,py); MX.rotate(Math.PI/4);
+        MX.fillStyle = '#ffb454'; MX.fillRect(-3.4,-3.4,6.8,6.8);
+        MX.restore();
+        if(MV.s > 0.028){
+          MX.fillStyle = 'rgba(255,180,84,.9)';
+          MX.fillText(col.name, px, py-9);
+        }
+      } else if(MV.s > 0.02){
+        MX.fillStyle = hsl(p.hue, p.sat, 48, .8);
+        MX.beginPath(); MX.arc(px, py, 1.8, 0, TAU); MX.fill();
+      }
+    }
+    if(sys.station){
+      const sp = stationPos(sys, G.time);
+      const [px, py] = w2m(sp.x, sp.y);
+      MX.fillStyle = '#7fe9ff'; MX.fillRect(px-2.6, py-2.6, 5.2, 5.2);
+    }
+    if(MV.sel === sys){
+      MX.strokeStyle = 'rgba(255,180,84,.8)'; MX.lineWidth = 1.4;
+      MX.beginPath(); MX.arc(sx, sy, 13+2*Math.sin(t*4), 0, TAU); MX.stroke();
+    }
+  }
+  /* ship */
+  const [hx, hy] = w2m(G.x, G.y);
+  MX.save(); MX.translate(hx, hy); MX.rotate(G.ang);
+  MX.fillStyle = '#e9dcc2';
+  MX.beginPath(); MX.moveTo(8,0); MX.lineTo(-6,5); MX.lineTo(-6,-5);
+  MX.closePath(); MX.fill(); MX.restore();
+  MX.strokeStyle = 'rgba(233,220,194,.5)';
+  MX.beginPath(); MX.arc(hx, hy, 12, 0, TAU); MX.stroke();
+}
+
+/* ---------------- 9. UI PANELS ---------------- */
+function panelVisible(){ return $('panelWrap').style.display !== 'none'; }
+function modalOpen(){ return panelVisible() || mapVisible() || MODE!=='play'; }
+function openPanel(html){
+  $('panel').innerHTML = html;
+  $('panelWrap').style.display = 'flex';
+}
+function closePanel(){ $('panelWrap').style.display = 'none'; }
+window.closePanel = closePanel;
+function pHead(title, sub){
+  return `<div class="pHead"><div><div class="pTitle">${title}</div>
+    <div class="sub">${sub||''}</div></div>
+    <button class="pClose" onclick="closePanel()">CLOSE</button></div>`;
+}
+function holdLine(){
+  return `<div class="sub" style="margin-bottom:6px">HOLD ${cargoUsed()}/${cargoCap()} · ¤${fmt(G.credits)} · FUEL ${Math.floor(G.fuel)}/${FUELMAX}</div>`;
+}
+function starRating(rich){
+  const n = clamp(Math.round(rich/1.8*5), 1, 5);
+  return '★'.repeat(n)+'<span style="opacity:.3">'+'★'.repeat(5-n)+'</span>';
+}
+
+function showPlanet(pid){
+  const ref = PIDX.get(pid); if(!ref) return;
+  const {sys, p} = ref;
+  const col = G.colonies[pid];
+  const name = col ? col.name : sysPlanetName(sys, p);
+  const sizeCls = p.size<46?'SMALL':(p.size<72?'MEDIUM':'LARGE');
+  let h = pHead(name, `<span class="hueDot" style="background:${hsl(p.hue,p.sat,55)}"></span>${PTYPES[p.type].label} · ${sizeCls} · ${colonySlots(p)} EXTRACTOR SLOTS`);
+  h += holdLine();
+  h += `<div class="secH">SURVEY</div>
+    <div class="row"><div class="lft">RICHNESS <span class="stars">${starRating(p.rich)}</span>${p.cRich?'<span class="tag" style="color:#ffd166;border-color:#ffd166">CRYSTAL VEINS</span>':''}</div></div>`;
+  for(const k in p.rates){
+    h += `<div class="row"><div class="lft"><b style="color:${RESMETA[k].c}">${RESMETA[k].n}</b></div>
+      <div class="cost">${p.rates[k].toFixed(1)} / MIN PER EXTRACTOR LEVEL</div></div>`;
+  }
+  if(!col){
+    const okTech = canColonize(p.type);
+    const okPay = canPay(COLONIZE_COST);
+    h += `<div class="secH">COLONIZATION</div>
+      <div class="row"><div class="lft">FOUND OUTPOST<div class="cost">${costStr(COLONIZE_COST)}</div></div>
+      <div class="btns"><button class="act" ${okTech&&okPay?'':'disabled'} onclick="colonize('${pid}')">COLONIZE</button></div></div>`;
+    if(!okTech) h += `<div class="sub badc">REQUIRES ${p.type==='gas'?'ORBITAL PLATFORMS':'EXTREME HABITATS'} RESEARCH</div>`;
+    else if(!okPay) h += `<div class="sub badc">INSUFFICIENT SUPPLIES — NEED ${costStr(COLONIZE_COST)}</div>`;
+  } else {
+    const cap = colonyCap(col);
+    h += `<div class="secH">STORAGE — CAP ${fmt(cap)} EACH</div>`;
+    let any = false;
+    for(const k in p.rates){
+      any = true;
+      const lvl = col.b.extractor;
+      const rate = lvl>0 ? (p.rates[k]*lvl*colonyMult(col)).toFixed(1) : '0';
+      h += `<div class="row"><div class="lft"><b style="color:${RESMETA[k].c}">${RESMETA[k].n}</b>
+        <span class="cost"> +${rate}/MIN</span></div>
+        <div class="cost">${fmt(col.storage[k])} / ${fmt(cap)}</div></div>`;
+    }
+    for(const k of RESKEYS){
+      if(p.rates[k]===undefined && col.storage[k]>=1){
+        h += `<div class="row"><div class="lft"><b style="color:${RESMETA[k].c}">${RESMETA[k].n}</b>
+          <span class="cost"> IMPORTED</span></div><div class="cost">${fmt(col.storage[k])}</div></div>`;
+      }
+    }
+    if(any) h += `<div class="row"><div class="lft"></div><div class="btns">
+      <button class="act" onclick="collectAll('${pid}')">COLLECT ALL ▸ HOLD</button></div></div>`;
+    /* manual labor — works even with zero extractors, so you can always bootstrap */
+    h += `<div class="secH">GROUND CREW</div>
+      <div class="row"><div class="lft">MANUAL EXTRACTION<div class="cost">DIG A SMALL BATCH STRAIGHT TO YOUR HOLD · ${HAND_CD}S COOLDOWN · NO FACILITIES NEEDED</div></div>
+      <div class="btns"><button class="act" id="handBtn" ${(G.handCd||0)>0?'disabled':''} onclick="handExtract('${pid}')">${(G.handCd||0)>0?'DIG · '+Math.ceil(G.handCd)+'S':'DIG'}</button></div></div>`;
+    /* buildings */
+    h += `<div class="secH">FACILITIES</div>`;
+    const lvl = col.b.extractor, maxL = colonySlots(p);
+    h += bRow(EXTNAME[p.type], `LEVEL ${lvl}/${maxL} — EACH LEVEL ADDS FULL YIELD`,
+      lvl<maxL ? extractorCost(lvl) : null, `buildAt('${pid}','extractor')`, lvl<maxL?'UPGRADE':'MAX');
+    h += bRow('STORAGE SILO', `${col.b.silo}/3 — +250 STORAGE CAP EACH`,
+      col.b.silo<3 ? siloCost(col.b.silo) : null, `buildAt('${pid}','silo')`, col.b.silo<3?'BUILD':'MAX');
+    h += bRow('HABITAT DOME', `${col.b.habitat}/3 — +25% OUTPUT EACH`,
+      col.b.habitat<3 ? habCost(col.b.habitat) : null, `buildAt('${pid}','habitat')`, col.b.habitat<3?'BUILD':'MAX');
+    h += bRow('FUEL DEPOT', col.b.depot?'ACTIVE — REFUELS SHIP FROM STORED GAS/ICE WHILE DOCKED':'REFUELS SHIP FROM STORED GAS/ICE',
+      col.b.depot ? null : depotCost(), `buildAt('${pid}','depot')`, col.b.depot?'BUILT':'BUILD');
+    const termReady = hasR('log1');
+    const tl = col.b.terminal;
+    let tSub, tCost = null, tLbl;
+    if(!tl){ tSub = termReady ? 'ENABLES ONE OUTGOING TRADE ROUTE' : 'REQUIRES FREIGHT LOGISTICS RESEARCH';
+             tCost = termReady ? termCost() : null; tLbl = 'BUILD'; }
+    else if(tl===1){ tSub = hasR('logA') ? 'LEVEL 1 — 1 ROUTE · UPGRADE FOR 3 ROUTES'
+                                          : 'LEVEL 1 — 1 ROUTE · ADVANCED LOGISTICS UNLOCKS UPGRADE';
+                     tCost = hasR('logA') ? termUpCost() : null; tLbl = hasR('logA') ? 'UPGRADE' : 'BUILT'; }
+    else { tSub = 'LEVEL 2 — UP TO 3 ROUTES'; tLbl = 'MAX'; }
+    h += bRow('FREIGHT TERMINAL', tSub, tCost, `buildAt('${pid}','terminal')`, tLbl);
+    /* freighter management */
+    if(tl){
+      const rts = routesFrom(pid), cap2 = termRouteCap(col);
+      h += `<div class="secH">FREIGHT — ROUTES ${rts.length}/${cap2}</div>`;
+      for(const r of rts){
+        const gi = G.routes.indexOf(r);
+        let dest = '?';
+        if(r.to.k==='p') dest = G.colonies[r.to.id] ? G.colonies[r.to.id].name : '?';
+        else { const s2 = SIDX.get(r.to.id); dest = s2 ? s2.sys.station.name+' (SELL)' : '?'; }
+        const lv = r.lvl||1, st2 = FR_LVL[lv];
+        let ub;
+        if(lv>=3) ub = `<button class="act" disabled>LVL MAX</button>`;
+        else if(!hasR('log2')) ub = `<button class="act" disabled>LVL ${lv}</button>`;
+        else ub = `<button class="act" ${canPay(frUpCost(lv))?'':'disabled'} onclick="upgFreighter(${gi})">LVL ${lv+1} · ${costStr(frUpCost(lv))}</button>`;
+        h += `<div class="row"><div class="lft">▸ ${dest}<div class="cost">FREIGHTER LVL ${lv} — ${st2.cap} CARGO · SPD ${st2.spdMin}–${st2.spdMax}${!hasR('log2')&&lv<3?' · HEAVY FREIGHTERS UNLOCKS UPGRADES':''}</div></div>
+          <div class="btns">${ub}<button class="act" data-arm="SCRAP" onclick="scrapFreighter(${gi},this)">SCRAP</button></div></div>`;
+      }
+      const canNew = rts.length < cap2 && G.credits >= 200;
+      h += `<div class="row"><div class="lft">NEW ROUTE<div class="cost">¤200 · PICK THE DESTINATION ON THE GALAXY MAP</div></div>
+        <div class="btns"><button class="act" ${canNew?'':'disabled'} onclick="startRouteFrom('${pid}')">NEW ROUTE</button></div></div>`;
+      if(rts.length >= cap2 && cap2===1)
+        h += `<div class="sub">${hasR('logA')?'UPGRADE THE TERMINAL TO RUN UP TO 3 ROUTES.':'RESEARCH ADVANCED LOGISTICS TO RAISE THE ROUTE LIMIT.'}</div>`;
+    }
+    /* ship services */
+    if(G.hull < maxHull()){
+      h += `<div class="secH">SHIPYARD</div>
+      <div class="row"><div class="lft">PATCH HULL<div class="cost">1 METAL = 3 HULL (HAVE ${Math.floor(G.cargo.metal)} ME)</div></div>
+      <div class="btns"><button class="act" ${G.cargo.metal>=1?'':'disabled'} onclick="repairColony('${pid}')">REPAIR</button></div></div>`;
+    }
+  }
+  openPanel(h);
+}
+function showPlanetInfo(pid){ // remote info card from the galaxy map
+  const ref = PIDX.get(pid); if(!ref) return;
+  const {sys, p} = ref;
+  const col = G.colonies[pid];
+  const scanned = G.scanned.has(pid) || !!col;
+  const name = col ? col.name : (scanned ? sysPlanetName(sys, p) : 'UNSCANNED BODY');
+  const sizeCls = p.size<46?'SMALL':(p.size<72?'MEDIUM':'LARGE');
+  let h;
+  if(scanned){
+    h = pHead(name, `<span class="hueDot" style="background:${hsl(p.hue,p.sat,55)}"></span>${PTYPES[p.type].label} · ${sizeCls} · ${colonySlots(p)} EXTRACTOR SLOTS · ${sys.name} SYSTEM`);
+    h += `<div class="secH">SURVEY</div>
+      <div class="row"><div class="lft">RICHNESS <span class="stars">${starRating(p.rich)}</span>${p.cRich?'<span class="tag" style="color:#ffd166;border-color:#ffd166">CRYSTAL VEINS</span>':''}</div></div>`;
+    for(const k in p.rates){
+      const rate = col ? (p.rates[k]*col.b.extractor*colonyMult(col)).toFixed(1)+' / MIN'
+                       : p.rates[k].toFixed(1)+' / MIN PER EXTRACTOR LEVEL';
+      h += `<div class="row"><div class="lft"><b style="color:${RESMETA[k].c}">${RESMETA[k].n}</b></div>
+        <div class="cost">${rate}</div></div>`;
+    }
+    if(col){
+      const cap = colonyCap(col);
+      h += `<div class="secH">COLONY — ${EXTNAME[p.type]} LEVEL ${col.b.extractor}</div>`;
+      for(const k of RESKEYS){
+        if(col.storage[k] >= 1 || p.rates[k] !== undefined)
+          h += `<div class="row"><div class="lft"><b style="color:${RESMETA[k].c}">${RESMETA[k].n}</b></div>
+            <div class="cost">${fmt(col.storage[k])} / ${fmt(cap)} STORED</div></div>`;
+      }
+      h += `<div class="sub">DOCK THERE TO COLLECT AND BUILD.</div>`;
+    } else if(!canColonize(p.type)){
+      h += `<div class="sub badc">REQUIRES ${p.type==='gas'?'ORBITAL PLATFORMS':'EXTREME HABITATS'} RESEARCH TO COLONIZE</div>`;
+    }
+  } else {
+    h = pHead(name, sys.name+' SYSTEM — NOT YET SURVEYED');
+    h += `<div class="sub" style="margin-top:8px">Fly within scanner range to survey this world.</div>`;
+  }
+  const tracked = G.navTarget && G.navTarget.id===pid;
+  h += `<div class="secH">NAVIGATION</div>
+    <div class="row"><div class="lft">${tracked?'AMBER CHEVRON IS POINTING HERE':'POINT THE NAV CHEVRON AT THIS WORLD'}</div>
+    <div class="btns"><button class="act" ${tracked?'style="color:#ffb454;border-color:#ffb454"':''} onclick="navTrackInfo('${pid}')">${tracked?'TRACKING ◆':'TRACK'}</button></div></div>`;
+  openPanel(h);
+}
+window.showPlanetInfo = showPlanetInfo;
+window.navTrackInfo = pid => { navTrack(pid); showPlanetInfo(pid); };
+function bRow(name, sub, cost, fn, btnLabel){
+  const disabled = !cost || !canPay(cost);
+  return `<div class="row"><div class="lft">${name}<div class="cost">${sub}${cost?' · '+costStr(cost):''}</div></div>
+    <div class="btns"><button class="act" ${cost&&!disabled?'':'disabled'} onclick="${fn}">${btnLabel}</button></div></div>`;
+}
+window.colonize = colonize; window.buildAt = buildAt;
+window.startRouteFrom = pid => {
+  closePanel();
+  openMap();
+  MV.mode = 'dst'; MV.srcPid = pid;
+  setHint('ROUTE ▸ PICK A DESTINATION — ONE OF YOUR COLONIES, OR A STATION TO AUTO-SELL');
+};
+window.upgFreighter = gi => {
+  const r = G.routes[gi]; if(!r || !hasR('log2') || (r.lvl||1)>=3) return;
+  if(!pay(frUpCost(r.lvl||1))){ SND.err(); toast('INSUFFICIENT RESOURCES', 'bad'); return; }
+  r.lvl = (r.lvl||1) + 1;
+  SND.thunk(); toast('FREIGHTER UPGRADED TO LEVEL '+r.lvl, 'good');
+  showPlanet(r.from); saveGame();
+};
+window.scrapFreighter = (gi, btn) => {
+  if(!armTwice(btn)) return;
+  const r = G.routes[gi]; if(!r) return;
+  const pid = r.from;
+  G.routes.splice(gi, 1);
+  SND.blip(); toast('ROUTE SCRAPPED');
+  showPlanet(pid); saveGame();
+};
+window.collectAll = collectAll; window.repairColony = repairColony;
+
+const HAND_CD = 6, HAND_YIELD = 0.2; // one dig = 12s worth of a level-1 extractor
+function handExtract(pid){
+  const ref = PIDX.get(pid); if(!ref) return;
+  const col = G.colonies[pid]; if(!col) return;
+  if((G.handCd||0) > 0){ SND.err(); return; }
+  let space = Math.max(0, cargoCap() - cargoUsed());
+  if(space <= 0.05){ SND.err(); toast('CARGO HOLD FULL', 'bad'); return; }
+  const parts = [];
+  for(const k in ref.p.rates){
+    let g = ref.p.rates[k] * HAND_YIELD * colonyMult(col);
+    g = Math.min(g, space); space -= g;
+    if(g > 0.04){ G.cargo[k] += g; parts.push('+'+g.toFixed(1)+' '+RESMETA[k].tag); }
+  }
+  G.handCd = HAND_CD;
+  SND.thunk(); toast('DUG BY HAND — '+parts.join(' '), 'good');
+  showPlanet(pid);
+}
+window.handExtract = handExtract;
+function showStation(sid){
+  const ref = SIDX.get(sid); if(!ref) return;
+  const st = ref.sys.station;
+  let h = pHead(st.name, ref.sys.name+' SYSTEM · TRADE STATION');
+  h += holdLine();
+  h += `<div class="secH">COMMODITY EXCHANGE</div>`;
+  const amtLbl = TRADE_AMT==='all' ? 'ALL' : TRADE_AMT;
+  const amtArg = TRADE_AMT==='all' ? "'all'" : TRADE_AMT;
+  const amtBtn = v => {
+    const on = TRADE_AMT===v;
+    return `<button class="act amt" ${on?'style="color:#ffb454;border-color:#ffb454"':''} onclick="setTradeAmt('${sid}','${v}')">${v==='all'?'ALL':v}</button>`;
+  };
+  h += `<div class="row"><div class="lft">TRADE AMOUNT<div class="cost">APPLIES TO EVERY BUY / SELL BELOW</div></div>
+    <div class="btns">${amtBtn(1)}${amtBtn(10)}${amtBtn('all')}</div></div>`;
+  for(const k of RESKEYS){
+    const price = BASEPRICE[k]*st.prices[k];
+    const bp = buyPrice(st, k);
+    const m = st.prices[k];
+    const trend = m>1.15 ? '<span class="good">▲ HIGH</span>' : (m<0.85 ? '<span class="badc">▼ LOW</span>' : '<span class="sub">— FAIR</span>');
+    const have = Math.floor(G.cargo[k]);
+    h += `<div class="row"><div class="lft"><b style="color:${RESMETA[k].c}">${RESMETA[k].n}</b>
+      <span class="cost"> ${trend}</span><div class="cost">SELL ¤${price.toFixed(1)} · BUY ¤${bp.toFixed(1)} · HOLD ${have}</div></div>
+      <div class="btns">
+      <button class="act tbtn" onclick="buyRes('${sid}','${k}',${amtArg})">BUY ${amtLbl}</button>
+      <button class="act tbtn" ${have>=1?'':'disabled'} onclick="sellRes('${sid}','${k}',${amtArg})">SELL ${amtLbl}</button>
+      </div></div>`;
+  }
+  h += `<div class="secH">SERVICES</div>`;
+  const fneed = FUELMAX - G.fuel;
+  h += `<div class="row"><div class="lft">REFUEL<div class="cost">¤2 PER UNIT · TANK ${Math.floor(G.fuel)}/${FUELMAX}</div></div>
+    <div class="btns">
+    <button class="act" ${fneed>=1?'':'disabled'} onclick="buyFuel('${sid}',25)">+25 (¤50)</button>
+    <button class="act" ${fneed>=1?'':'disabled'} onclick="buyFuel('${sid}','fill')">FILL (¤${Math.ceil(fneed*2)})</button>
+    </div></div>`;
+  const hneed = maxHull() - G.hull;
+  h += `<div class="row"><div class="lft">HULL REPAIR<div class="cost">¤3 PER POINT</div></div>
+    <div class="btns"><button class="act" ${hneed>=1?'':'disabled'} onclick="repairStation('${sid}')">FULL (¤${Math.ceil(hneed*3)})</button></div></div>`;
+  openPanel(h);
+}
+window.sellRes = sellRes; window.buyFuel = buyFuel; window.repairStation = repairStation;
+
+function showResearch(){
+  let h = pHead('RESEARCH LAB', 'SPEND CRYSTAL + CREDITS · CRYSTAL COMES FROM RICH WORLDS AND ANOMALIES');
+  h += holdLine();
+  for(let tier=1; tier<=4; tier++){
+    h += `<div class="secH">TIER ${tier}</div>`;
+    for(const r of RESEARCH){
+      if(r.tier!==tier) continue;
+      const owned = hasR(r.id);
+      const locked = r.req && !hasR(r.req);
+      let btn;
+      if(owned) btn = `<button class="act" disabled>✓ INSTALLED</button>`;
+      else if(locked){
+        const rq = RESEARCH.find(x=>x.id===r.req);
+        btn = `<button class="act" disabled>NEEDS ${rq.name}</button>`;
+      }
+      else btn = `<button class="act" ${canPay(r.cost)?'':'disabled'} onclick="doResearch('${r.id}')">RESEARCH · ${costStr(r.cost)}</button>`;
+      h += `<div class="card${owned?' owned':''}"><div class="cn">${r.name}</div>
+        <div class="cd">${r.desc}</div>${btn}</div>`;
+    }
+  }
+  openPanel(h);
+}
+window.doResearch = doResearch;
+
+function showMenu(){
+  const mins = Math.floor(G.playSec/60);
+  let h = pHead('COMMAND MENU', `SEED ${G.seed} · FLIGHT TIME ${Math.floor(mins/60)}H ${mins%60}M · ${Object.keys(G.colonies).length} COLONIES`);
+  h += `<div class="row"><div class="lft">RESUME FLIGHT</div><div class="btns"><button class="act" onclick="closePanel()">RESUME</button></div></div>
+  <div class="row"><div class="lft">SAVE GAME<div class="cost">ALSO AUTOSAVES EVERY 25S</div></div><div class="btns"><button class="act" onclick="menuSave()">SAVE</button></div></div>
+  <div class="row"><div class="lft">SAVE ARCHIVE<div class="cost">NAMED SAVES · EXPORT / IMPORT</div></div><div class="btns"><button class="act" onclick="showSaves()">OPEN</button></div></div>
+  <div class="row"><div class="lft">SOUND</div><div class="btns"><button class="act" onclick="menuSound(this)">${SND.on?'ON':'OFF'}</button></div></div>
+  <div class="row"><div class="lft">MANUAL</div><div class="btns"><button class="act" onclick="showHelp()">OPEN</button></div></div>
+  <div class="row"><div class="lft">DEBUG CONSOLE<div class="cost">FREE RESOURCES · TESTING</div></div><div class="btns"><button class="act" onclick="showDebug()">OPEN</button></div></div>
+  <div class="row"><div class="lft">EXIT TO TITLE<div class="cost">PROGRESS IS SAVED</div></div><div class="btns"><button class="act" onclick="quitToTitle()">EXIT</button></div></div>`;
+  openPanel(h);
+}
+window.menuSave = async ()=>{ await saveGame(); SND.blip(); toast('EXPEDITION SAVED', 'good'); };
+window.menuSound = btn => { SND.toggle(); btn.textContent = SND.on?'ON':'OFF'; $('btnSnd').textContent = 'SOUND: '+(SND.on?'ON':'OFF'); };
+window.quitToTitle = async ()=>{
+  await saveGame();
+  closePanel(); closeMap();
+  MODE = 'menu';
+  $('hud').style.display = 'none';
+  $('title').style.display = 'flex';
+  $('btnCont').disabled = false;
+};
+function showDebug(){
+  let h = pHead('DEBUG CONSOLE', 'FREE RESOURCES & REPAIRS · FOR TESTING');
+  h += `<div class="secH">SET RESOURCES</div>
+    <div class="sub">Values apply instantly. Setting cargo above hold capacity is allowed here.</div>`;
+  const rows = [['credits','CREDITS','#ffb454', Math.floor(G.credits)]]
+    .concat(RESKEYS.map(k => [k, RESMETA[k].n, RESMETA[k].c, Math.floor(G.cargo[k])]));
+  for(const [k, name, c, val] of rows){
+    h += `<div class="row"><div class="lft"><b style="color:${c}">${name}</b></div>
+      <div class="btns"><input class="tin" id="dbg_${k}" type="number" min="0" value="${val}" style="width:90px">
+      <button class="act" onclick="dbgSet('${k}')">SET</button></div></div>`;
+  }
+  h += `<div class="secH">SHIP</div>
+    <div class="row"><div class="lft">FUEL<div class="cost">${Math.floor(G.fuel)}/${FUELMAX}</div></div>
+      <div class="btns"><button class="act" onclick="dbgFuel()">TOP UP</button></div></div>
+    <div class="row"><div class="lft">HULL<div class="cost">${Math.floor(G.hull)}/${maxHull()}</div></div>
+      <div class="btns"><button class="act" onclick="dbgHull()">REPAIR</button></div></div>`;
+  openPanel(h);
+}
+window.showDebug = showDebug;
+window.dbgSet = k => {
+  const el = document.getElementById('dbg_'+k);
+  const v = parseFloat(el && el.value);
+  if(!isFinite(v) || v < 0){ SND.err(); toast('ENTER A NON-NEGATIVE NUMBER', 'bad'); return; }
+  if(k==='credits') G.credits = v; else G.cargo[k] = v;
+  SND.coin(); toast('DEBUG — '+(k==='credits'?'CREDITS':RESMETA[k].n)+' SET TO '+fmt(v), 'good');
+  showDebug(); updateHUD();
+};
+window.dbgFuel = () => { G.fuel = FUELMAX; SND.blip(); toast('DEBUG — TANK FILLED', 'good'); showDebug(); updateHUD(); };
+window.dbgHull = () => { G.hull = maxHull(); SND.blip(); toast('DEBUG — HULL RESTORED', 'good'); showDebug(); updateHUD(); };
+function showHelp(){
+  const h = pHead('FIELD MANUAL', 'ASTRONOMICS OPERATIONS GUIDE') + `
+  <div class="secH">FLIGHT</div>
+  <div class="sub">W thrusts forward, A and D turn, S brakes — SPACE or SHIFT boosts (burns extra fuel). Arrow keys work the same way. On touch, the left stick points the ship where you want to go. E / DOCK interacts with the nearest planet or station. M opens the galaxy map, R the research lab. The faint cyan chevron beside your ship points to the nearest trade station; press TRACK on any planet in the galaxy map to swap it for an amber pointer to that world. Flying near a planet scans it automatically. Careful near stars — heat shreds hull.</div>
+  <div class="secH">THE LOOP</div>
+  <div class="sub">1 · Scan worlds to see their yield. 2 · COLONIZE (costs metal + organics + credits from your hold — haul supplies with you). 3 · Build EXTRACTORS; resources pile up in colony storage. 4 · Dock and COLLECT into your hold. 5 · Spend metal to build, organics to grow, crystal to research, and sell surplus at cyan TRADE STATIONS for credits.</div>
+  <div class="secH">RESOURCES</div>
+  <div class="sub"><b style="color:#c3ccd6">METAL</b> builds everything and patches hull. <b style="color:#8fe08f">ORGANICS</b> found colonies and habitats. <b style="color:#ffd166">CRYSTAL</b> fuels research — mine rich worlds, crack anomalies. <b style="color:#c58bff">GAS</b> and <b style="color:#8fd8ff">ICE</b> convert to ship fuel at a colony FUEL DEPOT, and sell well. Trade stations deal BOTH WAYS — short on metal or organics? Sell what you have, buy what you need (at a markup, so shop where prices run ▼ LOW).</div>
+  <div class="secH">NETWORK</div>
+  <div class="sub">Research FREIGHT LOGISTICS, build a FREIGHT TERMINAL, then dock at that colony and press NEW ROUTE to pick a destination on the map: colony ▸ colony moves goods automatically; colony ▸ station sells them for hands-free income. ADVANCED LOGISTICS lets you upgrade a terminal to run THREE routes, and HEAVY FREIGHTERS lets you upgrade each freighter to level 3 from the colony panel. Freighters fly faster the lighter they are, wait at the dock when storage is empty, and never overfill a destination — anything that does not fit rides back and goes out with the next load. Research WARP DRIVE to jump to any colony from the map.</div>
+  <div class="secH">OUT THERE</div>
+  <div class="sub">Amber diamonds are anomalies — fly into them. Milestones (top of screen) pay out credits and crystal. If your hull fails you are towed to safety, minus 10% credits. The galaxy is yours to wire together, commander.</div>`;
+  openPanel(h);
+}
+window.showHelp = showHelp;
+
+/* ---------------- NAMED SAVES + EXPORT/IMPORT ---------------- */
+const SLOTS_KEY = 'astronomics_slots';
+async function getSlots(){ return (await stGet(SLOTS_KEY)) || {}; }
+async function setSlots(o){ await stSet(SLOTS_KEY, o); }
+const esc = s => String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function validSave(o){
+  return o && typeof o==='object' && typeof o.seed==='number' && o.cargo && Array.isArray(o.visited);
+}
+function saveLabel(d){
+  const dt = new Date(d.at||0);
+  const cols = d.data && d.data.colonies ? Object.keys(d.data.colonies).length : 0;
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')} `
+       + `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`
+       + ` · SEED ${d.data.seed} · ${cols} COLONIES`;
+}
+async function showSaves(){
+  const slots = await getSlots();
+  let h = pHead('SAVE ARCHIVE', 'NAMED SAVES · EXPORT / IMPORT · AUTOSAVE RUNS SEPARATELY');
+  if(MODE==='play'){
+    h += `<div class="secH">SAVE CURRENT EXPEDITION</div>
+      <div class="row"><div class="lft" style="flex:1;padding-right:10px">
+        <input class="tin" id="svName" maxlength="24" placeholder="SAVE NAME" value="${esc(G.saveName||'')}"></div>
+      <div class="btns"><button class="act" onclick="svSaveAs()">SAVE</button>
+      <button class="act" onclick="svExport('')">EXPORT</button></div></div>
+      <div class="sub">Saving with an existing name overwrites it.</div>`;
+  }
+  const ids = Object.keys(slots).sort((a,b)=>(slots[b].at||0)-(slots[a].at||0));
+  h += `<div class="secH">SAVED EXPEDITIONS — ${ids.length}</div>`;
+  if(!ids.length) h += `<div class="sub">Nothing archived yet.</div>`;
+  for(const id of ids){
+    const d = slots[id];
+    h += `<div class="row"><div class="lft"><b class="amb">${esc(d.name)}</b>
+      <div class="cost">${saveLabel(d)}</div></div>
+      <div class="btns">
+      <button class="act" data-arm="LOAD" onclick="svLoad('${id}',this)">LOAD</button>
+      <button class="act" onclick="svExport('${id}')">EXPORT</button>
+      <button class="act" data-arm="DEL" onclick="svDelete('${id}',this)">DEL</button>
+      </div></div>`;
+  }
+  h += `<div class="secH">EXPORT OUTPUT</div>
+    <textarea class="tin" id="expOut" readonly placeholder="Press EXPORT on a save — the code appears here."></textarea>
+    <div class="row"><div class="lft"></div><div class="btns">
+    <button class="act" onclick="svCopy()">COPY CODE</button>
+    <button class="act" onclick="svDownload()">DOWNLOAD .JSON</button></div></div>
+    <div class="secH">IMPORT</div>
+    <textarea class="tin" id="impIn" placeholder="Paste a save code here…"></textarea>
+    <div class="row"><div class="lft"><input type="file" id="impFile" accept=".json,application/json" class="tin" style="padding:4px"></div>
+    <div class="btns"><button class="act" onclick="svImport()">IMPORT</button></div></div>`;
+  openPanel(h);
+  const f = $('impFile');
+  f.addEventListener('change', ()=>{
+    const file = f.files && f.files[0]; if(!file) return;
+    const r = new FileReader();
+    r.onload = ()=>{ $('impIn').value = r.result; svImport(); };
+    r.readAsText(file);
+  });
+}
+window.showSaves = showSaves;
+function armTwice(btn){ // first tap arms, second tap within 3s confirms
+  if(btn.dataset.armed){ return true; }
+  btn.dataset.armed = '1'; const orig = btn.dataset.arm || btn.textContent;
+  btn.textContent = 'SURE?';
+  setTimeout(()=>{ if(btn.isConnected){ delete btn.dataset.armed; btn.textContent = orig; } }, 3000);
+  return false;
+}
+window.svSaveAs = async ()=>{
+  const name = ($('svName').value.trim() || 'EXPEDITION').toUpperCase().slice(0,24);
+  const slots = await getSlots();
+  let id = Object.keys(slots).find(k=>slots[k].name===name);
+  if(!id) id = 's'+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36);
+  slots[id] = { name, at: Date.now(), data: serialize() };
+  await setSlots(slots);
+  G.saveName = name;
+  SND.blip(); toast('ARCHIVED — '+name, 'good');
+  showSaves();
+};
+window.svLoad = async (id, btn)=>{
+  if(MODE==='play' && !armTwice(btn)) return; // confirm: overwrites current progress
+  const slots = await getSlots();
+  const d = slots[id]; if(!d || !validSave(d.data)){ SND.err(); toast('SAVE UNREADABLE','bad'); return; }
+  applySave(JSON.parse(JSON.stringify(d.data)));
+  G.saveName = d.name;
+  closePanel();
+  if(MODE==='menu') startGame();
+  else { SND.warp(); toast('EXPEDITION RESTORED — '+d.name, 'good'); }
+};
+window.svDelete = async (id, btn)=>{
+  if(!armTwice(btn)) return;
+  const slots = await getSlots();
+  delete slots[id];
+  await setSlots(slots);
+  toast('SAVE DELETED');
+  showSaves();
+};
+let EXP_NAME = 'ASTRONOMICS';
+window.svExport = async id=>{
+  let name, data;
+  if(id===''){ name = (G.saveName||'CURRENT'); data = serialize(); }
+  else {
+    const slots = await getSlots(); const d = slots[id];
+    if(!d){ return; }
+    name = d.name; data = d.data;
+  }
+  EXP_NAME = name;
+  $('expOut').value = JSON.stringify({ astronomics:1, name, at:Date.now(), save:data });
+  SND.blip(); toast('EXPORT READY — COPY OR DOWNLOAD IT');
+};
+window.svCopy = ()=>{
+  const el = $('expOut');
+  if(!el.value){ SND.err(); toast('EXPORT SOMETHING FIRST','bad'); return; }
+  el.focus(); el.select();
+  const done = ()=>{ SND.blip(); toast('COPIED TO CLIPBOARD','good'); };
+  if(navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(el.value).then(done, ()=>{ try{document.execCommand('copy');done();}catch(e){} });
+  else { try{ document.execCommand('copy'); done(); }catch(e){ toast('SELECT + COPY MANUALLY','bad'); } }
+};
+window.svDownload = ()=>{
+  const v = $('expOut').value;
+  if(!v){ SND.err(); toast('EXPORT SOMETHING FIRST','bad'); return; }
+  try{
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([v], {type:'application/json'}));
+    a.download = 'Astronomics-'+EXP_NAME.replace(/[^A-Z0-9_-]/gi,'_')+'.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+  }catch(e){ SND.err(); toast('DOWNLOAD BLOCKED — USE COPY CODE','bad'); }
+};
+window.svImport = async ()=>{
+  const raw = $('impIn').value.trim();
+  if(!raw){ SND.err(); toast('PASTE A SAVE CODE OR PICK A FILE','bad'); return; }
+  let o;
+  try{ o = JSON.parse(raw); }catch(e){ SND.err(); toast('NOT VALID SAVE DATA','bad'); return; }
+  const data = validSave(o) ? o : (o && validSave(o.save) ? o.save : null);
+  if(!data){ SND.err(); toast('NOT VALID SAVE DATA','bad'); return; }
+  const name = ((o.name||'IMPORTED')+'').toUpperCase().slice(0,24);
+  const slots = await getSlots();
+  let id = Object.keys(slots).find(k=>slots[k].name===name);
+  if(!id) id = 's'+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36);
+  slots[id] = { name, at: Date.now(), data };
+  await setSlots(slots);
+  SND.blip(); toast('IMPORTED — '+name+' ADDED TO ARCHIVE','good');
+  showSaves();
+};
+
+/* ---------------- HUD ---------------- */
+let hudTimer = 0;
+function updateHUD(){
+  $('fuelF').style.width = 'calc('+(clamp(G.fuel/FUELMAX,0,1)*100).toFixed(1)+'% - 2px)';
+  const hf = $('hullF');
+  hf.style.width = 'calc('+(clamp(G.hull/maxHull(),0,1)*100).toFixed(1)+'% - 2px)';
+  hf.style.background = G.hull < maxHull()*0.3 ? '#ff7a6b' : '#9adf9a';
+  let ch = `<span class="chip"><b class="amb">¤</b> ${fmt(G.credits)}</span>`;
+  for(const k of RESKEYS)
+    ch += `<span class="chip"><b style="color:${RESMETA[k].c}">${RESMETA[k].tag}</b> ${Math.floor(G.cargo[k])}</span>`;
+  $('chips').innerHTML = ch;
+  $('cargoTxt').textContent = cargoUsed()+'/'+cargoCap();
+  $('cargoF').style.width = 'calc('+(clamp(cargoUsed()/cargoCap(),0,1)*100).toFixed(1)+'% - 2px)';
+  $('objective').innerHTML = '<span>OBJECTIVE ▸ </span>'+currentObjective();
+  /* prompt */
+  let pr = '';
+  const near = G.nearTarget;
+  if(near){
+    pr = '[E] DOCK — '+near.name;
+    const col = near.kind==='planet' && G.colonies[near.id];
+    if(col && col.b.depot && G.fuel < FUELMAX-0.5) pr += '  ·  REFUELING';
+  } else if(G.fuel < 15){
+    pr = (Math.floor(performance.now()/400)%2) ? 'LOW FUEL — FIND GAS, ICE OR A STATION' : '';
+  }
+  $('prompt').textContent = pr;
+  $('abInteract').style.opacity = near ? 1 : .35;
+  /* live cooldown on the manual-extraction button if a colony panel is open */
+  const hb = document.getElementById('handBtn');
+  if(hb){
+    const cd = G.handCd||0;
+    hb.disabled = cd > 0;
+    hb.textContent = cd > 0 ? 'DIG · '+Math.ceil(cd)+'S' : 'DIG';
+  }
+}
+
+/* ---------------- MAIN LOOP + BOOT ---------------- */
+let last = 0;
+function frame(ts){
+  const t = ts/1000;
+  let dt = Math.min(0.05, t - last || 0.016);
+  last = t;
+  if(MODE==='play') update(dt);
+  draw(t);
+  if(MODE==='play'){
+    if(mapVisible()) renderMap(t);
+    else drawMinimap(t);
+    hudTimer -= dt;
+    if(hudTimer<=0){ hudTimer = 0.12; updateHUD(); }
+  }
+  requestAnimationFrame(frame);
+}
+
+function startGame(){
+  MODE = 'play';
+  $('title').style.display = 'none';
+  $('hud').style.display = 'block';
+  cam.x = G.x; cam.y = G.y;
+  resizeAll();
+  SND.ensure(); SND.ambient();
+  toast('SYSTEMS ONLINE — WELCOME TO '+GAL.systems[0].name+', COMMANDER', 'good');
+  toast('FLY CLOSE TO A PLANET TO SCAN IT');
+  updateHUD();
+}
+$('btnNew').addEventListener('click', ()=>{
+  SND.ensure();
+  const sv = $('seedIn').value.trim();
+  const seed = sv ? seedFromString(sv.toUpperCase()) : (Math.random()*4294967295)>>>0;
+  newState(seed);
+  startGame();
+  saveGame();
+});
+$('btnCont').addEventListener('click', async ()=>{
+  SND.ensure();
+  const o = await stGet('astronomics_save');
+  if(!o){ toast('NO SAVE FOUND','bad'); return; }
+  applySave(o);
+  startGame();
+});
+$('btnHow').addEventListener('click', ()=>{ if(!G){ newStateForHelp(); } showHelp(); });
+$('btnSaves').addEventListener('click', showSaves);
+function newStateForHelp(){ /* manual can open without a game */ }
+$('btnSnd').addEventListener('click', function(){ SND.ensure(); SND.toggle(); this.textContent = 'SOUND: '+(SND.on?'ON':'OFF'); });
+$('btnMap').addEventListener('click', ()=>{ if(!panelVisible()) openMap(); });
+$('btnRes').addEventListener('click', ()=>{ if(!mapVisible()) showResearch(); });
+$('btnMenu').addEventListener('click', showMenu);
+addEventListener('keydown', e=>{ // ESC closes manual on the title screen
+  if(MODE==='menu' && e.code==='Escape' && panelVisible()) closePanel();
+});
+addEventListener('contextmenu', e=>e.preventDefault());
+
+(async function boot(){
+  resizeAll();
+  GAL = genGalaxy(1337); indexGalaxy(); // demo backdrop for the title
+  const pref = await stGet('astronomics_snd');
+  if(pref===false){ SND.on = false; $('btnSnd').textContent = 'SOUND: OFF'; }
+  const save = await stGet('astronomics_save');
+  if(save) $('btnCont').disabled = false;
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
