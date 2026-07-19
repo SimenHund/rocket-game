@@ -762,9 +762,13 @@ addEventListener('keydown', e=>{
   if(e.code==='KeyM'){ mapVisible() ? closeMap() : (panelVisible()?0:openMap()); }
   if(e.code==='KeyR'){ if(!mapVisible()){ panelVisible() ? closePanel() : showResearch(); } }
   if(e.code==='KeyQ'){ if(!mapVisible()){ panelVisible() ? closePanel() : showEject(); } }
+  if(e.code==='Space' && panelVisible() && PANEL_PID && G && G.dockAnchor
+     && G.dockAnchor.id===PANEL_PID && G.colonies[PANEL_PID]){
+    handExtract(PANEL_PID); /* SPACE works the ground crew while docked */
+  }
   if(e.code==='Tab'){
-    if(mapVisible()) closeMap();
-    else if(panelVisible()) closePanel();
+    if(panelVisible()) closePanel();      /* topmost layer first */
+    else if(mapVisible()) closeMap();
     else showMenu();
   }
 });
@@ -2017,7 +2021,7 @@ function renderSide(sys){
     }
     if(sys.station){
       const stid = sys.station.id;
-      h += `<div class="row"><div class="lft" style="color:#7fe9ff">${sys.station.name}
+      h += `<div class="row"><div class="lft" style="color:#7fe9ff;cursor:pointer" onclick="showStationInfo('${stid}')">${sys.station.name}
         <div class="cost">TRADE STATION</div></div><div class="btns vstack">`;
       if(MV.mode==='dst')
         h += `<button class="act" onclick="mapPickDst('st','${stid}')">SELL HERE</button>`;
@@ -2068,6 +2072,16 @@ window.navTrack = id => {
 };
 window.tryWarp = tryWarp;
 
+function mapKeyNav(dt){ // WASD/arrows pan · SPACE zooms in · SHIFT zooms out
+  if(!mapVisible() || panelVisible() || MODE!=='play') return;
+  const pan = 430 / MV.s * dt;
+  if(keys.KeyW||keys.ArrowUp)    MV.y -= pan;
+  if(keys.KeyS||keys.ArrowDown)  MV.y += pan;
+  if(keys.KeyA||keys.ArrowLeft)  MV.x -= pan;
+  if(keys.KeyD||keys.ArrowRight) MV.x += pan;
+  if(keys.Space)                      MV.s = clamp(MV.s*(1+1.6*dt), 0.004, 0.2);
+  if(keys.ShiftLeft||keys.ShiftRight) MV.s = clamp(MV.s/(1+1.6*dt), 0.004, 0.2);
+}
 function renderMap(t){
   MX.setTransform(DPR,0,0,DPR,0,0);
   MX.fillStyle = '#04050a'; MX.fillRect(0,0,W,H);
@@ -2178,11 +2192,13 @@ function renderMap(t){
 /* ---------------- 9. UI PANELS ---------------- */
 function panelVisible(){ return $('panelWrap').style.display !== 'none'; }
 function modalOpen(){ return panelVisible() || mapVisible() || MODE!=='play'; }
+let PANEL_PID = null; // planet id when a docked colony panel is open
 function openPanel(html){
+  PANEL_PID = null;
   $('panel').innerHTML = html;
   $('panelWrap').style.display = 'flex';
 }
-function closePanel(){ $('panelWrap').style.display = 'none'; }
+function closePanel(){ PANEL_PID = null; $('panelWrap').style.display = 'none'; }
 window.closePanel = closePanel;
 function pHead(title, sub){
   return `<div class="pHead"><div><div class="pTitle">${title}</div>
@@ -2295,6 +2311,7 @@ function showPlanet(pid){
     }
   }
   openPanel(h);
+  PANEL_PID = pid;
 }
 function showPlanetInfo(pid){ // remote info card from the galaxy map
   const ref = PIDX.get(pid); if(!ref) return;
@@ -2338,6 +2355,27 @@ function showPlanetInfo(pid){ // remote info card from the galaxy map
 }
 window.showPlanetInfo = showPlanetInfo;
 window.navTrackInfo = pid => { navTrack(pid); showPlanetInfo(pid); };
+function showStationInfo(sid){ // remote station card from the galaxy map
+  const ref = SIDX.get(sid); if(!ref) return;
+  const st = ref.sys.station;
+  let h = pHead(st.name, ref.sys.name+' SYSTEM · TRADE STATION');
+  h += `<div class="secH">COMMODITY PRICES</div>`;
+  for(const k of RESKEYS){
+    const m = st.prices[k];
+    const trend = m>1.15 ? '<span class="good">▲ HIGH</span>' : (m<0.85 ? '<span class="badc">▼ LOW</span>' : '<span class="sub">— FAIR</span>');
+    h += `<div class="row"><div class="lft"><b style="color:${RESMETA[k].c}">${RESMETA[k].n}</b>
+      <span class="cost"> ${trend}</span></div>
+      <div class="cost">SELL ¤${(BASEPRICE[k]*m).toFixed(1)} · BUY ¤${buyPrice(st,k).toFixed(1)}</div></div>`;
+  }
+  h += `<div class="sub" style="margin-top:6px">Dock at the station to trade, refuel and repair. Prices are permanent — plan your routes around them.</div>`;
+  const tracked = G.navTarget && G.navTarget.id===sid;
+  h += `<div class="secH">NAVIGATION</div>
+    <div class="row"><div class="lft">${tracked?'AMBER CHEVRON IS POINTING HERE':'POINT THE NAV CHEVRON AT THIS STATION'}</div>
+    <div class="btns"><button class="act" ${tracked?'style="color:#ffb454;border-color:#ffb454"':''} onclick="navTrackInfoS('${sid}')">${tracked?'TRACKING ◆':'TRACK'}</button></div></div>`;
+  openPanel(h);
+}
+window.showStationInfo = showStationInfo;
+window.navTrackInfoS = sid => { navTrack(sid); showStationInfo(sid); };
 function bRow(name, sub, cost, fn, btnLabel){
   const disabled = !cost || !canPay(cost);
   return `<div class="row"><div class="lft">${name}<div class="cost">${sub}${cost?' · '+costStr(cost):''}</div></div>
@@ -2542,7 +2580,7 @@ function showHelp(){
   <div class="secH">RESOURCES</div>
   <div class="sub"><b style="color:#c3ccd6">METAL</b> builds everything and patches hull. <b style="color:#8fe08f">ORGANICS</b> found colonies and habitats. <b style="color:#ffd166">CRYSTAL</b> fuels research — mine rich worlds, crack anomalies. <b style="color:#c58bff">GAS</b> and <b style="color:#8fd8ff">ICE</b> convert to ship fuel at a colony FUEL DEPOT, and sell well. Trade stations deal BOTH WAYS — short on metal or organics? Sell what you have, buy what you need (at a markup, so shop where prices run ▼ LOW).</div>
   <div class="secH">NETWORK</div>
-  <div class="sub">Research FREIGHT LOGISTICS, build a FREIGHT TERMINAL, then dock at that colony and press NEW ROUTE to pick a destination on the map: colony ▸ colony moves goods automatically; colony ▸ station sells them for hands-free income. ADVANCED LOGISTICS lets you upgrade a terminal to run THREE routes, and HEAVY FREIGHTERS lets you upgrade each freighter to level 3 from the colony panel. Freighters fly faster the lighter they are, wait at the dock when storage is empty, and never overfill a destination — anything that does not fit rides back and goes out with the next load. Research WARP DRIVE to jump to any colony from the map.</div>
+  <div class="sub">Research FREIGHT LOGISTICS, build a FREIGHT TERMINAL, then dock at that colony and press NEW ROUTE to pick a destination on the map: colony ▸ colony moves goods automatically; colony ▸ station sells them for hands-free income. ADVANCED LOGISTICS lets you upgrade a terminal to run THREE routes, and HEAVY FREIGHTERS lets you upgrade each freighter to level 3 from the colony panel. On the galaxy map, WASD pans the view and SPACE / SHIFT zoom in and out. While docked at a colony, SPACE also works the ground crew's dig. Freighters fly faster the lighter they are, wait at the dock when storage is empty, and never overfill a destination — anything that does not fit rides back and goes out with the next load. Research WARP DRIVE to jump to any colony from the map.</div>
   <div class="secH">OUT THERE</div>
   <div class="sub">Amber diamonds are anomalies — fly into them. Milestones (top of screen) pay out credits and crystal. If your hull fails you are towed to safety, minus 10% credits. The galaxy is yours to wire together, commander.</div>`;
   openPanel(h);
@@ -2737,7 +2775,7 @@ function frame(ts){
   if(MODE==='play') update(dt);
   draw(t);
   if(MODE==='play'){
-    if(mapVisible()) renderMap(t);
+    if(mapVisible()){ mapKeyNav(dt); renderMap(t); }
     else drawMinimap(t);
     hudTimer -= dt;
     if(hudTimer<=0){ hudTimer = 0.12; updateHUD(); }
