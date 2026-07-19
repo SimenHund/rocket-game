@@ -11,6 +11,15 @@
   --pan:rgba(8,10,14,.94); --bad:#ff7a6b; --ok:#9adf9a;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+/* scrollbars in the terminal's own palette */
+::-webkit-scrollbar{width:9px;height:9px;}
+::-webkit-scrollbar-track{background:rgba(255,180,110,.05);border-left:1px solid var(--lineDim);}
+::-webkit-scrollbar-thumb{background:rgba(255,180,110,.28);border:2px solid #0b0c12;}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,180,84,.55);}
+::-webkit-scrollbar-corner{background:transparent;}
+@supports (-moz-appearance:none){
+  *{scrollbar-width:thin;scrollbar-color:rgba(255,180,110,.35) rgba(10,11,17,.9);}
+}
 html,body{margin:0;padding:0;overflow:hidden;background:#05060a;height:100%;}
 body{font-family:ui-monospace,'Cascadia Mono','SF Mono',Menlo,Consolas,'Courier New',monospace;
   color:var(--ink); user-select:none; -webkit-user-select:none; touch-action:none;}
@@ -43,6 +52,10 @@ canvas{display:block;}
 #seedIn:focus,.tin:focus{border-color:var(--line);}
 .tin{width:100%;box-sizing:border-box;letter-spacing:.08em;}
 textarea.tin{height:84px;resize:vertical;font-size:10px;letter-spacing:0;word-break:break-all;}
+/* strip native number-input spinners everywhere */
+input[type=number]{-moz-appearance:textfield;appearance:textfield;}
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
 #titleFoot{position:absolute;bottom:14px;font-size:10px;letter-spacing:.25em;color:var(--dim);}
 
 /* ---------- HUD ---------- */
@@ -73,7 +86,7 @@ textarea.tin{height:84px;resize:vertical;font-size:10px;letter-spacing:0;word-br
 #mm{min-width:0;display:block;background:rgba(3,4,8,.8);}
 #mmLab{font-size:11px;letter-spacing:.18em;color:var(--ink);line-height:1;padding:2px 0 1px;}
 .kbd{color:var(--dim);}
-@media (pointer:coarse){ .kbd{display:none;} }
+@media (pointer:coarse){ .kbd{display:none;} #btnFull{display:none;} }
 #btnBar{display:flex;flex-direction:column;gap:6px;width:100%;margin-top:2px;}
 .hbtn{width:100%;padding:8px 10px;background:var(--pan);border:1px solid var(--line);color:var(--ink);
   font-family:inherit;font-size:11px;letter-spacing:.18em;cursor:pointer;text-align:center;}
@@ -98,6 +111,25 @@ textarea.tin{height:84px;resize:vertical;font-size:10px;letter-spacing:0;word-br
   font-family:inherit;font-size:11px;letter-spacing:.2em;}
 .abtn:active{background:rgba(255,180,84,.2);}
 @media (pointer:coarse){ #stick,#abtns{display:flex;} #stick{display:block;} }
+
+/* desktop: larger HUD all around (~1.2x, everything scaled equally), objective centered up top */
+@media (pointer:fine) and (min-width:1000px){
+  .bRow{gap:10px;}
+  .bar{width:346px;height:13px;}
+  .bt{font-size:11px;}
+  #chips{width:346px;grid-gap:6px;}
+  .chip{font-size:13px;padding:3px 8px;}
+  #cargoTxt{font-size:11px;}
+  #btnEject{font-size:13px !important;padding:10px 12px !important;}
+  #objective{position:fixed;top:14px;left:50%;transform:translateX(-50%);
+    text-align:center;max-width:46vw;font-size:12px;margin-top:0;}
+  #mmWrap{width:178px;}
+  .mmBtn{padding:7px 7px 8px;gap:7px;}
+  #mmLab{font-size:13px;}
+  .hbtn{font-size:13px;padding:10px 12px;}
+  #btnBar{gap:7px;}
+  .toast{font-size:13px;padding:7px 12px;}
+}
 
 /* narrow screens (phones, portrait) — shrink both columns so they never meet */
 @media (max-width:768px){
@@ -147,8 +179,7 @@ textarea.tin{height:84px;resize:vertical;font-size:10px;letter-spacing:0;word-br
 /* galaxy-map side list: info | rates | stacked buttons, evenly distributed */
 #mapSide .row{flex-wrap:nowrap;}
 #mapSide .row .lft{flex:1.1;min-width:96px;}
-#mapSide .row .mid{flex:1;}
-#mapSide .row .btns{flex-direction:column;align-items:stretch;flex:0 0 auto;min-width:96px;gap:5px;}
+#mapSide .row .btns{flex-direction:column;align-items:stretch;flex:0 0 128px;gap:5px;}
 #mapSide .row .btns .act{width:100%;}
 #mapSide .row .btns .cost{text-align:center;}
 .act.tbtn{width:96px;padding-left:0;padding-right:0;text-align:center;}
@@ -173,6 +204,10 @@ textarea.tin{height:84px;resize:vertical;font-size:10px;letter-spacing:0;word-br
 #mapC{position:absolute;inset:0;width:100%;height:100%;}
 #mapTop{position:absolute;top:10px;left:12px;display:flex;gap:6px;flex-wrap:wrap;z-index:2;}
 #mapHint{position:absolute;top:52px;left:12px;font-size:10px;letter-spacing:.2em;color:var(--amb);z-index:2;}
+#mapSide .row{flex-wrap:nowrap;}
+#mapSide .row .lft{flex:1 1 0;min-width:0;}
+#mapSide .row .mid{flex:0 0 98px;justify-content:flex-start;}
+#mapSide .row .mid .midIn{font-size:9px;}
 #mapSide{position:absolute;top:10px;right:12px;width:280px;max-height:76vh;overflow-y:auto;
   background:var(--pan);border:1px solid var(--line);padding:12px 14px;z-index:2;}
 #mapSide:empty{display:none;}
@@ -181,6 +216,19 @@ textarea.tin{height:84px;resize:vertical;font-size:10px;letter-spacing:0;word-br
   #mapSide{top:auto;bottom:10px;left:12px;right:12px;width:auto;max-height:44vh;}
   #objective{max-width:44vw;font-size:9px;}
   .bar{width:198px;}
+}
+/* desktop galaxy-map system list — placed last so it wins over the base rules above */
+@media (pointer:fine) and (min-width:1000px){
+  #mapSide{width:490px;max-height:80vh;padding:14px 16px;}
+  #mapSide .pTitle{font-size:16px !important;}
+  #mapSide .sub{font-size:11px;}
+  #mapSide .row{font-size:13px;}
+  #mapSide .row .cost{font-size:11px;}
+  #mapSide .row .mid .midIn{font-size:11px;}
+  #mapSide .mid .stars{font-size:11px !important;}
+  #mapSide .row .mid{flex:0 0 124px;}
+  #mapSide .row .btns.vstack{flex:0 0 148px;width:148px;}
+  #mapSide .act{font-size:12px;}
 }
 </style>
 </head>
@@ -196,6 +244,7 @@ textarea.tin{height:84px;resize:vertical;font-size:10px;letter-spacing:0;word-br
   <button class="mbtn" id="btnCont" disabled>CONTINUE</button>
   <button class="mbtn" id="btnSaves">SAVES</button>
   <button class="mbtn" id="btnHow">MANUAL</button>
+  <button class="mbtn" id="btnFull">FULLSCREEN: OFF</button>
   <button class="mbtn" id="btnSnd">SOUND: ON</button>
   <div id="seedRow"><label>SEED</label><input id="seedIn" maxlength="10" placeholder="RANDOM"></div>
   <div id="titleFoot">ASTRONOMICS v1.0 — A PROCEDURAL GALAXY AWAITS</div>
@@ -208,6 +257,7 @@ textarea.tin{height:84px;resize:vertical;font-size:10px;letter-spacing:0;word-br
     <div class="bRow"><div class="bar"><div class="fill" id="hullF"></div></div><span class="bt">HULL</span></div>
     <div class="bRow"><div class="bar"><div class="fill" id="cargoF"></div></div><span class="bt">HOLD</span></div>
     <div class="chipsRow"><div id="chips"></div><div id="cargoTxt"></div></div>
+    <button class="hbtn clickable" id="btnEject" style="width:auto;align-self:flex-start;padding:5px 10px;font-size:10px;">JETTISON <span class="kbd">[Q]</span></button>
     <div id="objective"></div>
   </div>
   <div id="mmWrap" class="clickable">
@@ -217,7 +267,7 @@ textarea.tin{height:84px;resize:vertical;font-size:10px;letter-spacing:0;word-br
     </button>
     <div id="btnBar">
       <button class="hbtn" id="btnRes">RESEARCH <span class="kbd">[R]</span></button>
-      <button class="hbtn" id="btnMenu">MENU <span class="kbd">[ESC]</span></button>
+      <button class="hbtn" id="btnMenu">MENU <span class="kbd">[TAB]</span></button>
     </div>
   </div>
   <div id="prompt"></div>
@@ -705,12 +755,14 @@ const keys = {};
 addEventListener('keydown', e=>{
   if(document.activeElement && document.activeElement.tagName==='INPUT') return;
   keys[e.code] = true;
-  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','Tab'].includes(e.code)) e.preventDefault();
+  if(e.code==='KeyF'){ toggleFs(); }
   if(MODE!=='play') return;
   if(e.code==='KeyE'||e.code==='Enter'){ if(!modalOpen()) interact(); }
   if(e.code==='KeyM'){ mapVisible() ? closeMap() : (panelVisible()?0:openMap()); }
   if(e.code==='KeyR'){ if(!mapVisible()){ panelVisible() ? closePanel() : showResearch(); } }
-  if(e.code==='Escape'){
+  if(e.code==='KeyQ'){ if(!mapVisible()){ panelVisible() ? closePanel() : showEject(); } }
+  if(e.code==='Tab'){
     if(mapVisible()) closeMap();
     else if(panelVisible()) closePanel();
     else showMenu();
@@ -1062,26 +1114,34 @@ function routesUpdate(dt){
 }
 
 /* ---------------- WARP ---------------- */
-function warpCost(pid){
-  const ref = PIDX.get(pid);
-  const pos = planetPos(ref.sys, ref.p, G.time);
-  return hyp(pos.x-G.x, pos.y-G.y)/900 * fuelMult();
+function targetInfo(id){ // planets and stations share track/warp plumbing
+  if((''+id).indexOf('st')===0){
+    const ref = SIDX.get(id); if(!ref) return null;
+    return { pos: stationPos(ref.sys, G.time), sys: ref.sys, size: 40, name: ref.sys.station.name };
+  }
+  const ref = PIDX.get(id); if(!ref) return null;
+  const col = G.colonies[id];
+  return { pos: planetPos(ref.sys, ref.p, G.time), sys: ref.sys, size: ref.p.size,
+           name: col ? col.name : (G.scanned.has(id) ? sysPlanetName(ref.sys, ref.p) : 'TARGET') };
+}
+function warpCost(id){
+  const t = targetInfo(id); if(!t) return 0;
+  return hyp(t.pos.x-G.x, t.pos.y-G.y)/900 * fuelMult();
 }
 let WARPFX = 0;
-function tryWarp(pid){
+function tryWarp(id){
   if(!hasR('warp1') || G.warpCd>0) { SND.err(); return; }
-  const cost = warpCost(pid);
+  const t = targetInfo(id); if(!t) return;
+  const cost = warpCost(id);
   if(G.fuel < cost){ SND.err(); toast('INSUFFICIENT FUEL FOR WARP ('+Math.ceil(cost)+' NEEDED)', 'bad'); return; }
-  const ref = PIDX.get(pid);
-  const pos = planetPos(ref.sys, ref.p, G.time);
-  const away = Math.atan2(pos.y-ref.sys.y, pos.x-ref.sys.x);
+  const away = Math.atan2(t.pos.y-t.sys.y, t.pos.x-t.sys.x);
   G.fuel -= cost;
-  G.x = pos.x + Math.cos(away)*(ref.p.size+280);
-  G.y = pos.y + Math.sin(away)*(ref.p.size+280);
+  G.x = t.pos.x + Math.cos(away)*(t.size+280);
+  G.y = t.pos.y + Math.sin(away)*(t.size+280);
   G.vx = 0; G.vy = 0; G.warpCd = 4; G.dockAnchor = null;
   WARPFX = 1; SND.warp();
   closeMap();
-  toast('WARP COMPLETE — '+G.colonies[pid].name);
+  toast('WARP COMPLETE — '+t.name);
 }
 
 /* ---------------- MILESTONES ---------------- */
@@ -1131,15 +1191,12 @@ function update(dt){
   G.time += dt; G.playSec += dt;
   G.warpCd = Math.max(0, G.warpCd - dt);
   G.handCd = Math.max(0, (G.handCd||0) - dt);
-  if(G.navTarget){ // arrived at tracked planet -> clear the pointer
-    const ref = PIDX.get(G.navTarget.id);
-    if(!ref) G.navTarget = null;
-    else {
-      const pos = planetPos(ref.sys, ref.p, G.time);
-      if(hyp(pos.x-G.x, pos.y-G.y) < ref.p.size + 240){
-        G.navTarget = null;
-        SND.ping(); toast('NAV TARGET REACHED', 'good');
-      }
+  if(G.navTarget){ // arrived at tracked target -> clear the pointer
+    const t = targetInfo(G.navTarget.id);
+    if(!t) G.navTarget = null;
+    else if(hyp(t.pos.x-G.x, t.pos.y-G.y) < t.size + 340){
+      G.navTarget = null;
+      SND.ping(); toast('NAV TARGET REACHED', 'good');
     }
   }
   WARPFX = Math.max(0, WARPFX - dt*1.4);
@@ -1585,11 +1642,8 @@ function drawStationBody(sys, t){
    Amber: a planet you chose to TRACK on the galaxy map. */
 function navGoal(){
   if(G.navTarget){
-    const ref = PIDX.get(G.navTarget.id);
-    if(ref){
-      const pos = planetPos(ref.sys, ref.p, G.time);
-      return { x:pos.x, y:pos.y, amber:true, near: ref.p.size + 260 };
-    }
+    const t = targetInfo(G.navTarget.id);
+    if(t) return { x:t.pos.x, y:t.pos.y, amber:true, near: t.size + 260 };
     G.navTarget = null; // stale reference
   }
   let best = null;
@@ -1937,13 +1991,13 @@ function renderSide(sys){
         mid = `<div class="mid"><div class="midIn">`;
         for(const k in p.rates){
           mid += `<div><b style="color:${RESMETA[k].c}">${RESMETA[k].tag}</b> `
-               + (col ? (p.rates[k]*col.b.extractor*colonyMult(col)).toFixed(1)+' / MIN'
-                      : p.rates[k].toFixed(1)+' / MIN·LVL')
+               + (col ? (p.rates[k]*col.b.extractor*colonyMult(col)).toFixed(1)+'/MIN'
+                      : p.rates[k].toFixed(1)+'/MIN·LVL')
                + `</div>`;
         }
         mid += `<div class="stars" style="font-size:9px">${starRating(p.rich)}</div></div></div>`;
       }
-      h += `<div class="row"><div class="lft" onclick="showPlanetInfo('${p.id}')" style="cursor:pointer;flex:0 1 auto">
+      h += `<div class="row"><div class="lft" onclick="showPlanetInfo('${p.id}')" style="cursor:pointer">
         <span class="hueDot" style="background:${hsl(p.hue,p.sat,55)}"></span>${nm}
         <div class="cost">${scanned?PTYPES[p.type].label:'—'}${col?' · <span class="amb">COLONY</span>':''}</div>
         </div>${mid}<div class="btns vstack">`;
@@ -1962,10 +2016,19 @@ function renderSide(sys){
       h += `</div></div>`;
     }
     if(sys.station){
+      const stid = sys.station.id;
       h += `<div class="row"><div class="lft" style="color:#7fe9ff">${sys.station.name}
-        <div class="cost">TRADE STATION</div></div><div class="btns">`;
+        <div class="cost">TRADE STATION</div></div><div class="btns vstack">`;
       if(MV.mode==='dst')
-        h += `<button class="act" onclick="mapPickDst('st','${sys.station.id}')">SELL HERE</button>`;
+        h += `<button class="act" onclick="mapPickDst('st','${stid}')">SELL HERE</button>`;
+      else {
+        const trackedS = G.navTarget && G.navTarget.id===stid;
+        h += `<button class="act" ${trackedS?'style="color:#ffb454;border-color:#ffb454"':''} onclick="navTrack('${stid}')">${trackedS?'TRACKING ◆':'TRACK'}</button>`;
+        const wc = Math.ceil(warpCost(stid));
+        const can = hasR('warp1') && G.fuel>=wc && G.warpCd<=0;
+        h += `<button class="act" ${can?'':'disabled'} onclick="tryWarp('${stid}')">WARP · ${wc} FUEL</button>`;
+        if(!hasR('warp1')) h += `<div class="cost">NEEDS WARP DRIVE</div>`;
+      }
       h += `</div></div>`;
     }
   } else {
@@ -1991,17 +2054,15 @@ window.mapPickDst = (k, id) => {
   if(addRoute(MV.srcPid, {k, id})){ MV.mode='view'; MV.srcPid=null; setHint(''); renderRoutesSide(); }
 };
 window.mapDelRoute = i => { delRoute(i); renderRoutesSide(); };
-window.navTrack = pid => {
-  if(G.navTarget && G.navTarget.id===pid){
+window.navTrack = id => {
+  if(G.navTarget && G.navTarget.id===id){
     G.navTarget = null;
     toast('TRACKING CLEARED');
   } else {
-    G.navTarget = { k:'p', id:pid };
-    const ref = PIDX.get(pid);
-    const col = G.colonies[pid];
-    const nm = col ? col.name : (ref && G.scanned.has(pid) ? sysPlanetName(ref.sys, ref.p) : 'TARGET');
+    G.navTarget = { k: (''+id).indexOf('st')===0 ? 'st' : 'p', id };
+    const t = targetInfo(id);
     SND.blip();
-    toast('TRACKING '+nm+' — FOLLOW THE AMBER CHEVRON', 'good');
+    toast('TRACKING '+(t?t.name:'TARGET')+' — FOLLOW THE AMBER CHEVRON', 'good');
   }
   renderSide(MV.sel);
 };
@@ -2033,7 +2094,10 @@ function renderMap(t){
     const visited = G.visited.has(sys.i);
     if(!visited && !hasR('scan2')) continue;
     const [sx, sy] = w2m(sys.x, sys.y);
-    if(sx<-60||sx>W+60||sy<-60||sy>H+60) continue;
+    // cull by the system's full extent, not just its star —
+    // at high zoom a planet can be on screen while its sun is far outside the frame
+    const cullM = 60 + sys.maxR*MV.s;
+    if(sx<-cullM||sx>W+cullM||sy<-cullM||sy>H+cullM) continue;
     if(!visited){
       MX.fillStyle = 'rgba(233,220,194,.22)';
       MX.beginPath(); MX.arc(sx, sy, 2, 0, TAU); MX.fill();
@@ -2049,6 +2113,31 @@ function renderMap(t){
     MX.font = '10px ui-monospace, monospace'; MX.textAlign = 'center';
     MX.fillStyle = hasCol ? 'rgba(255,180,84,.9)' : 'rgba(138,129,114,.85)';
     MX.fillText(sys.name, sx, sy+18);
+    /* whisper-faint orbital trails once individual planets resolve — same
+       time-window logic as the minimap, just far more subdued */
+    if(MV.s > 0.018){
+      MX.lineWidth = 1;
+      for(const p of sys.planets){
+        const or = p.orbit*MV.s;
+        if(or < 9) continue;
+        const aNow = p.a0 + G.time*p.osp;
+        const sweep = clamp(Math.abs(p.osp)*45, 0.1, 2.1) * Math.sign(p.osp||1);
+        const c2 = G.colonies[p.id];
+        const lk = !c2 && G.scanned.has(p.id) && !canColonize(p.type);
+        const SEG = 6;
+        for(let i2=0;i2<SEG;i2++){
+          const f1 = (i2+1)/SEG;
+          const a0 = aNow - sweep*(1-i2/SEG), a1 = aNow - sweep*(1-f1);
+          const al = c2 ? 0.06+0.30*f1 : lk ? 0.03+0.15*f1 : 0.02+0.11*f1;
+          MX.strokeStyle = c2 ? `rgba(255,180,84,${al})`
+                          : lk ? `rgba(255,122,107,${al})` : `rgba(233,220,194,${al})`;
+          MX.beginPath();
+          MX.moveTo(sx+Math.cos(a0)*or, sy+Math.sin(a0)*or);
+          MX.lineTo(sx+Math.cos(a1)*or, sy+Math.sin(a1)*or);
+          MX.stroke();
+        }
+      }
+    }
     for(const p of sys.planets){
       const pos = planetPos(sys, p, G.time);
       const [px, py] = w2m(pos.x, pos.y);
@@ -2367,6 +2456,7 @@ function showMenu(){
   h += `<div class="row"><div class="lft">RESUME FLIGHT</div><div class="btns"><button class="act" onclick="closePanel()">RESUME</button></div></div>
   <div class="row"><div class="lft">SAVE GAME<div class="cost">ALSO AUTOSAVES EVERY 25S</div></div><div class="btns"><button class="act" onclick="menuSave()">SAVE</button></div></div>
   <div class="row"><div class="lft">SAVE ARCHIVE<div class="cost">NAMED SAVES · EXPORT / IMPORT</div></div><div class="btns"><button class="act" onclick="showSaves()">OPEN</button></div></div>
+  ${matchMedia('(pointer:coarse)').matches ? '' : `<div class="row"><div class="lft">FULLSCREEN [F]</div><div class="btns"><button class="act" onclick="menuFullscreen(this)">${isFs()?'ON':'OFF'}</button></div></div>`}
   <div class="row"><div class="lft">SOUND</div><div class="btns"><button class="act" onclick="menuSound(this)">${SND.on?'ON':'OFF'}</button></div></div>
   <div class="row"><div class="lft">MANUAL</div><div class="btns"><button class="act" onclick="showHelp()">OPEN</button></div></div>
   <div class="row"><div class="lft">DEBUG CONSOLE<div class="cost">FREE RESOURCES · TESTING</div></div><div class="btns"><button class="act" onclick="showDebug()">OPEN</button></div></div>
@@ -2382,6 +2472,37 @@ window.quitToTitle = async ()=>{
   $('hud').style.display = 'none';
   $('title').style.display = 'flex';
   $('btnCont').disabled = false;
+};
+let EJ_AMT = 1; // jettison quantity: 1, 10, or 'all'
+window.setEjAmt = v => { EJ_AMT = v==='all' ? 'all' : +v; showEject(); };
+function showEject(){
+  let h = pHead('JETTISON CARGO', 'EJECTED GOODS ARE LOST TO THE VOID — MAKE ROOM IN A HURRY');
+  h += holdLine();
+  const amtBtn = v => {
+    const on = EJ_AMT===v;
+    return `<button class="act amt" ${on?'style="color:#ffb454;border-color:#ffb454"':''} onclick="setEjAmt('${v}')">${v==='all'?'ALL':v}</button>`;
+  };
+  h += `<div class="row"><div class="lft">AMOUNT<div class="cost">APPLIES TO EVERY EJECT BELOW</div></div>
+    <div class="btns">${amtBtn(1)}${amtBtn(10)}${amtBtn('all')}</div></div>`;
+  const lbl = EJ_AMT==='all' ? 'ALL' : EJ_AMT;
+  const arg = EJ_AMT==='all' ? "'all'" : EJ_AMT;
+  for(const k of RESKEYS){
+    const have = G.cargo[k];
+    h += `<div class="row"><div class="lft"><b style="color:${RESMETA[k].c}">${RESMETA[k].n}</b>
+      <div class="cost">IN HOLD: ${Math.floor(have)}</div></div>
+      <div class="btns"><button class="act tbtn" ${have>=0.5?'':'disabled'} onclick="ejectRes('${k}',${arg})">EJECT ${lbl}</button></div></div>`;
+  }
+  openPanel(h);
+}
+window.showEject = showEject;
+window.ejectRes = (k, amt) => {
+  const q = Math.min(amt==='all' ? G.cargo[k] : amt, G.cargo[k]);
+  if(q<=0){ SND.err(); return; }
+  G.cargo[k] -= q;
+  spawnBurst({x:G.x, y:G.y}, 30);
+  SND.thunk();
+  toast('JETTISONED '+fmt(q)+' '+RESMETA[k].n);
+  showEject(); updateHUD();
 };
 function showDebug(){
   let h = pHead('DEBUG CONSOLE', 'FREE RESOURCES & REPAIRS · FOR TESTING');
@@ -2415,7 +2536,7 @@ window.dbgHull = () => { G.hull = maxHull(); SND.blip(); toast('DEBUG — HULL R
 function showHelp(){
   const h = pHead('FIELD MANUAL', 'ASTRONOMICS OPERATIONS GUIDE') + `
   <div class="secH">FLIGHT</div>
-  <div class="sub">W thrusts forward, A and D turn, S brakes — SPACE or SHIFT boosts (burns extra fuel). Arrow keys work the same way. On touch, the left stick points the ship where you want to go. E / DOCK interacts with the nearest planet or station. M opens the galaxy map, R the research lab. The faint cyan chevron beside your ship points to the nearest trade station; press TRACK on any planet in the galaxy map to swap it for an amber pointer to that world. Flying near a planet scans it automatically. Careful near stars — heat shreds hull.</div>
+  <div class="sub">W thrusts forward, A and D turn, S brakes — SPACE or SHIFT boosts (burns extra fuel). Arrow keys work the same way. On touch, the left stick points the ship where you want to go. E / DOCK interacts with the nearest planet or station. M opens the galaxy map, R the research lab, TAB the menu, Q the cargo jettison, F fullscreen. The faint cyan chevron beside your ship points to the nearest trade station; press TRACK on any planet in the galaxy map to swap it for an amber pointer to that world. Flying near a planet scans it automatically. Careful near stars — heat shreds hull.</div>
   <div class="secH">THE LOOP</div>
   <div class="sub">1 · Scan worlds to see their yield. 2 · COLONIZE (costs metal + organics + credits from your hold — haul supplies with you). 3 · Build EXTRACTORS; resources pile up in colony storage. 4 · Dock and COLLECT into your hold. 5 · Spend metal to build, organics to grow, crystal to research, and sell surplus at cyan TRADE STATIONS for credits.</div>
   <div class="secH">RESOURCES</div>
@@ -2656,9 +2777,39 @@ function newStateForHelp(){ /* manual can open without a game */ }
 $('btnSnd').addEventListener('click', function(){ SND.ensure(); SND.toggle(); this.textContent = 'SOUND: '+(SND.on?'ON':'OFF'); });
 $('btnMap').addEventListener('click', ()=>{ if(!panelVisible()) openMap(); });
 $('btnRes').addEventListener('click', ()=>{ if(!mapVisible()) showResearch(); });
+function fsSupported(){
+  const el = document.documentElement;
+  return !!(el.requestFullscreen || el.webkitRequestFullscreen);
+}
+function isFs(){ return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+window.isFs = isFs;
+function toggleFs(){
+  if(!fsSupported()){
+    SND.err();
+    toast('FULLSCREEN NOT SUPPORTED IN THIS BROWSER', 'bad');
+    return;
+  }
+  try{
+    if(isFs()){
+      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    } else {
+      const el = document.documentElement;
+      (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+    }
+  }catch(e){ SND.err(); toast('FULLSCREEN BLOCKED BY THE BROWSER', 'bad'); }
+}
+function fsLabelSync(){
+  const b = $('btnFull');
+  if(b) b.textContent = 'FULLSCREEN: '+(isFs() ? 'ON' : 'OFF');
+}
+document.addEventListener('fullscreenchange', ()=>{ fsLabelSync(); resizeAll(); });
+document.addEventListener('webkitfullscreenchange', ()=>{ fsLabelSync(); resizeAll(); });
+$('btnFull').addEventListener('click', toggleFs);
+window.menuFullscreen = btn => { toggleFs(); setTimeout(()=>{ if(btn.isConnected) btn.textContent = isFs()?'ON':'OFF'; }, 150); };
 $('btnMenu').addEventListener('click', showMenu);
+$('btnEject').addEventListener('click', ()=>{ if(MODE==='play' && !mapVisible() && !panelVisible()) showEject(); });
 addEventListener('keydown', e=>{ // ESC closes manual on the title screen
-  if(MODE==='menu' && e.code==='Escape' && panelVisible()) closePanel();
+  if(MODE==='menu' && (e.code==='Escape'||e.code==='Tab') && panelVisible()){ e.preventDefault(); closePanel(); }
 });
 addEventListener('contextmenu', e=>e.preventDefault());
 
